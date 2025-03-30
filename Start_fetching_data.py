@@ -8,9 +8,11 @@ CLIENT_SECRET = 'sHrn7n_7RE4vVEzhMkm3n4S8giSl5gK9L9qLcXFtDTk'
 deribit_api = DeribitAPI(CLIENT_ID, CLIENT_SECRET)
 
 def start_fetching_data_from_api():
-
     while True:
         try:
+            # Clear the price cache before fetching new data
+            deribit_api.clear_price_cache()
+            
             current_utc_date = datetime.utcnow().date() 
             start_date = current_utc_date - timedelta(days=7)
             end_date = current_utc_date  
@@ -23,7 +25,7 @@ def start_fetching_data_from_api():
             deribit_api.execute_data_fetch(currency='BTC', start_date=start_datetime, end_date=end_datetime)
 
             # Optional: Sleep for a specified amount of time before the next execution
-            time.sleep(10)  # Wait for 5 minutes before fetching again
+            time.sleep(10)  # Wait for 10 seconds before fetching again
 
         except KeyboardInterrupt:
             print("Process interrupted by the user.")

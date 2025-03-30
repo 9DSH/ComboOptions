@@ -48,8 +48,6 @@ class DeribitAPI:
         
     def fetch_btc_to_usd(self):
         """Fetch current BTC to USD conversion rate.""" 
-        if self.btc_usd_price is not None:
-            return self.btc_usd_price
         
         url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
         try:
@@ -296,3 +294,7 @@ class DeribitAPI:
 
 
         logging.info("Data fetching process completed.")
+
+    def clear_price_cache(self):
+        """Clear the cached BTC price to force a fresh fetch"""
+        self.btc_usd_price = None

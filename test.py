@@ -1,157 +1,95 @@
-import logging
-import pandas as pd
-from Calculations import calculate_option_profit, black_scholes
-from concurrent.futures import ProcessPoolExecutor
-import numpy as np
-from datetime import datetime, timezone
-from Fetch_data import Fetching_data
+from datetime import datetime, timedelta
+import asyncio
+import aiohttp
+from Deribit import DeribitAPI
+import json
 
-# Set up logging for better debugging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Use existing credentials from your configuration
+CLIENT_ID = 'i_kH-t6n'
+CLIENT_SECRET = 'sHrn7n_7RE4vVEzhMkm3n4S8giSl5gK9L9qLcXFtDTk'
 
-fetch_data = Fetching_data()
-
-
-def calculate_raw_profits(option_details, days_ahead_slider, position_side):
+async def test_fetch_trades():
+    # Initialize the DeribitAPI with proper credentials
+    api = DeribitAPI(client_id=CLIENT_ID, client_secret=CLIENT_SECRET)
     
-    risk_free_rate = 0.0
-    change_in_iv  = 0.0
-    profit_results = []
-    index_price_range = np.arange(70000, 90000, 1000)
-    now_utc = datetime.now(timezone.utc).date()
-
-    strike_price = option_details['strike_price'].values[0]
-    option_type = option_details['option_type'].values[0]
-    bid_price = option_details['bid_price_usd'].values[0]
-    ask_price = option_details['ask_price_usd'].values[0]
-    bid_iv = option_details['bid_iv'].values[0]
-    ask_iv = option_details['ask_iv'].values[0] 
-    expiration_date_str = option_details['expiration_date'].values[0]
-
-    expiration_date = pd.to_datetime(expiration_date_str).date()  
-
-    time_to_expiration_days = max((expiration_date - now_utc).days, 1)
-    remaining_days = time_to_expiration_days - days_ahead_slider
-    time_to_expiration_future = max(remaining_days / 365.0, 0.0001)
-
-    future_iv = ask_iv / 100 + (change_in_iv / 100.0) if position_side == "BUY" else bid_iv / 100 + (change_in_iv / 100.0)
-    position_value = ask_price if position_side == "BUY" else bid_price
-
-    for u_price in index_price_range:
-        mtm_price = black_scholes(u_price, strike_price, time_to_expiration_future, risk_free_rate, future_iv, option_type)
-
-        estimated_profit = (mtm_price - position_value) if position_side == "BUY" else (position_value - mtm_price)
-
-        profit_results.append({
-            'Underlying Price': u_price,
-            f'Day {days_ahead_slider} Profit ({position_side})': estimated_profit,
-        })
-
-    results_df = pd.DataFrame(profit_results)
-
-    return results_df
-
-def get_optimized_quantities(base_quantity_X, base_quantity_Y, profits_main, profits_combo, max_quantity=2):
-    quantity_X = base_quantity_X
-    quantity_Y = base_quantity_Y
-    new_quantity_X = 0
-    new_quantity_Y = 0
-
-    adjustment_factor = 0.1
-    logging.info("Starting quantity optimization...")
-
-    main_option_min = profits_main.min() 
-    combo_option_min = profits_combo.min() 
-
-    mean_x_profit = (main_option_min * quantity_X)  
-    mean_y_profit = (combo_option_min * quantity_Y)  
-    total_profit = mean_x_profit + mean_y_profit
-    optimized_total_profit = total_profit
-
-    iteration_count = 0
-    max_iterations = 100  # Prevent infinite loop
-
-    profit_combinations = {}
+    # Use a specific instrument for current month/quarter
+    instrument_name = "BTC-1APR25-84000-P" # Example of a near-term option
+    print(f"Testing with instrument: {instrument_name}")
     
-    while (quantity_X != new_quantity_X or quantity_Y != new_quantity_Y) and iteration_count < max_iterations:
-        # Log current quantities and profits
-        logging.info(f"Current quantities => X: {quantity_X}, Y: {quantity_Y}")
-        logging.info(f"Current profits => Mean X: {mean_x_profit}, Mean Y: {mean_y_profit}, Total Profit: {total_profit}")
-
+    # Set up time range for last 7 days
+    end_time = datetime.utcnow()
+    start_time = end_time - timedelta(days=7)
+    
+    # Convert to milliseconds timestamp
+    start_timestamp = int(start_time.timestamp() * 1000)
+    end_timestamp = int(end_time.timestamp() * 1000)
+    
+    print(f"Attempting to fetch trades from {start_time} to {end_time}")
+    
+    async with aiohttp.ClientSession() as session:
+        result = await api.fetch_public_trades_async(
+            session, 
+            instrument_name, 
+            start_timestamp, 
+            end_timestamp
+        )
         
-        new_quantity_X = max(0.1, quantity_X - adjustment_factor)
-        new_quantity_X = min(new_quantity_X, max_quantity)
-        new_quantity_Y = min(quantity_Y + adjustment_factor, max_quantity)
-
-        # Calculate new profits with new quantities
-        new_mean_x_profit = (main_option_min * new_quantity_X)  
-        new_mean_y_profit = (combo_option_min * new_quantity_Y)  
-        new_total_profit = new_mean_x_profit + new_mean_y_profit
-        
-        # Log updated potential quantities and profits
-        logging.info(f"Proposed new quantities => X: {new_quantity_X}, Y: {new_quantity_Y}")
-        logging.info(f"Proposed new profits => New Mean X: {new_mean_x_profit}, New Mean Y: {new_mean_y_profit}, New Total Profit: {new_total_profit}")
-
-        if new_total_profit > optimized_total_profit:
-            logging.info("No further optimization possible; exiting optimization loop.")
-            profit_combinations[(quantity_X, quantity_Y)] = new_total_profit
-            quantity_X = new_quantity_X
-            quantity_Y = new_quantity_Y
-            optimized_total_profit = new_total_profit
-            continue
+        if result and 'result' in result:
+            trades = result['result']['trades']
+            if trades:
+                # Sort trades by timestamp in descending order
+                trades.sort(key=lambda x: x['timestamp'], reverse=True)
+                
+                # Get time range of available trades
+                latest_trade = trades[0]
+                oldest_trade = trades[-1]
+                latest_time = datetime.fromtimestamp(latest_trade['timestamp'] / 1000)
+                oldest_time = datetime.fromtimestamp(oldest_trade['timestamp'] / 1000)
+                
+                # Extract option details
+                expiration_date, strike_price, option_type = api.extract_option_details(instrument_name)
+                
+                print("\nInstrument Details:")
+                print(f"Strike Price: {strike_price}")
+                print(f"Option Type: {option_type}")
+                print(f"Expiration: {expiration_date}")
+                
+                print("\nTrade History Summary:")
+                print(f"Total number of trades: {len(trades)}")
+                print(f"Oldest trade: {oldest_time}")
+                print(f"Latest trade: {latest_time}")
+                print(f"Time span: {latest_time - oldest_time}")
+                
+                # Calculate some basic statistics
+                volumes = [trade['amount'] for trade in trades]
+                prices = [trade['price'] for trade in trades]
+                directions = [trade.get('direction', 'N/A') for trade in trades]
+                buy_count = directions.count('buy')
+                sell_count = directions.count('sell')
+                
+                print("\nTrading Statistics:")
+                print(f"Total volume traded: {sum(volumes):.4f}")
+                print(f"Average trade size: {sum(volumes)/len(volumes):.4f}")
+                print(f"Highest price: {max(prices):.8f}")
+                print(f"Lowest price: {min(prices):.8f}")
+                print(f"Buy trades: {buy_count}")
+                print(f"Sell trades: {sell_count}")
+                
+                # Show the 5 most recent trades
+                print("\nMost recent 5 trades:")
+                for i, trade in enumerate(trades[:5], 1):
+                    trade_time = datetime.fromtimestamp(trade['timestamp'] / 1000)
+                    print(f"\nTrade {i}:")
+                    print(f"Time: {trade_time}")
+                    print(f"Price: {trade['price']:.8f}")
+                    print(f"Amount: {trade['amount']}")
+                    print(f"Direction: {trade.get('direction', 'N/A')}")
+                    print(f"Index Price: {trade.get('index_price', 'N/A')}")
+            else:
+                print(f"No trades found for {instrument_name} in the specified time period")
+                print("Try using a different strike price or expiration date")
         else:
-            # If no beneficial changes are found, we break to avoid infinite loop
-            if abs(mean_x_profit - new_mean_x_profit) < 1e-5 and abs(mean_y_profit - new_mean_y_profit) < 1e-5:
-                logging.info("No changes to profits detected; exiting optimization loop.")
-                break
+            print("Error fetching trades")
 
-            # Update means and quantities
-            mean_x_profit = new_mean_x_profit
-            mean_y_profit = new_mean_y_profit
-            quantity_X = new_quantity_X
-            quantity_Y = new_quantity_Y
-
-        # Log the updated quantities and profits
-        logging.info(f"Updated quantities after adjustment => X: {quantity_X}, Y: {quantity_Y}")
-        logging.info(f"Updated profits => Mean X: {mean_x_profit}, Mean Y: {mean_y_profit}")
-
-        iteration_count += 1
-    
-    return optimized_total_profit, quantity_X, quantity_Y
-
-if __name__ == '__main__':
-    
-    days_ahead_slider = 1
-    initial_quantity = 1
-
-    # Fetch all options with details
-    all_options_with_details = fetch_data.get_all_options(filter=None, type='data')
-    print(all_options_with_details.shape[0])
-
-    main_option = 'BTC-2MAR25-83000-P' 
-    combo_option = 'BTC-2MAR25-80000-C'
-
-    main_option_details, _ = fetch_data.fetch_option_data(main_option)
-    combo_option_details, _ = fetch_data.fetch_option_data(combo_option)
-
-    main_profit_buy_raw = calculate_raw_profits(main_option_details, days_ahead_slider, "BUY")
-    combo_profit_buy_raw = calculate_raw_profits(combo_option_details, days_ahead_slider, "BUY")
-    combo_profit_sell_raw = calculate_raw_profits(combo_option_details, days_ahead_slider, "SELL")
-
-    main_option_profits = main_profit_buy_raw['Day 1 Profit (BUY)']
-    combo_option_profits = combo_profit_buy_raw['Day 1 Profit (BUY)']
-    print("main:", main_option_profits)
-    print("combo:", combo_option_profits)
-
-    BUY_optimized_total_profit, quantity_X, quantity_Y = get_optimized_quantities(initial_quantity, initial_quantity, main_option_profits, combo_option_profits)
-
-    print(BUY_optimized_total_profit)
-    print(quantity_X)
-    print(quantity_Y)
-
-
-    total_pro =  (main_option_profits * quantity_X) + ( combo_option_profits * quantity_Y)
-    print(total_pro.describe())
-
-    total_proc =  (main_option_profits) + ( combo_option_profits)
-    print(total_proc.describe())
+if __name__ == "__main__":
+    asyncio.run(test_fetch_trades())

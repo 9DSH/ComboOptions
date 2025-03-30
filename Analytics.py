@@ -33,7 +33,15 @@ class Analytic_processing:
                 logging.info(f"Saved public trades data to {self.analytic_data_csv_path}")
 
 
-    def compare_combined_profits(self, results_df, available_combo_options, combo_options_with_details_df, days_ahead_slider, quantity, risk_free_rate, selected_option_filter):
+    def compare_combined_profits(self, 
+                                 results_df, 
+                                 available_combo_options, 
+                                 combo_options_with_details_df, 
+                                 days_ahead_slider, 
+                                 quantity, 
+                                 risk_free_rate, 
+                                 selected_option_filter):
+        
         combined_results = {'Underlying Price': results_df['Underlying Price']}
         
         # Get profits for the option symbol

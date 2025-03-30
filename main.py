@@ -366,106 +366,94 @@ def app():
 
             filter_row = st.container()
             with filter_row:
-                col_refresh, col_date,col_range ,col_strike, col_expiration,  col_f4 = st.columns([0.01, 0.2, 0.1, 0.08, 0.08, 0.05])
-                #with col_refresh:
+                col_refresh, col_date, col_strike_range,col_expiration,col_vertical, col_public_details = st.columns([0.01, 0.2, 0.2, 0.2,0.01, 0.08])
+                #with col_refresh: 
                     #apply_market_filter = st.button(label="Apply", key="apply_market_filter")
 
                 with col_date:
-                    # date_row1 = st.container()
-                    # date_row2 = st.container()
+                    date_row1 = st.container()
+                    date_row2 = st.container()
 
-                   # with date_row1:
-                    cc1,cc2,cc3 ,ca1,ca2,ca3 = st.columns([0.04, 0.02, 0.02, 0.04, 0.02, 0.02])
-                    with cc1:
-                        start_date = st.date_input("Start Entry Date", value=date(2025, 2, 1))
-                    with cc2:
-                        start_hour = st.number_input("Hour", min_value=0, max_value=23, value=0)
-                    with cc3:
-                        start_minute = st.number_input("Minute", min_value=0, max_value=59, value=0)
+                    with date_row1:
+                        cc1,cc2,cc3 = st.columns([0.04, 0.02, 0.02])
+                        with cc1:
+                            start_date = st.date_input("Start Entry Date", value=date(2025, 3, 1))
+                        with cc2:
+                            start_hour = st.number_input("Hour", min_value=0, max_value=23, value=0)
+                        with cc3:
+                            start_minute = st.number_input("Minute", min_value=0, max_value=59, value=0)
+                    
+                    with date_row2:
+                        ca1,ca2,ca3 = st.columns([0.04, 0.02, 0.02])
+                        with ca1 :
+                            current_utc_date =  datetime.now(timezone.utc).date()
+                            end_date = st.date_input("End Entry Date", value=current_utc_date)
 
-                    with ca1 :
-                        current_utc_date =  datetime.now(timezone.utc).date()
-                        end_date = st.date_input("End Entry Date", value=current_utc_date)
-
-                    with ca2:
-                        end_hour = st.number_input("Hour", min_value=0, max_value=23, value=23)
-                    with ca3:
-                        end_minute = st.number_input("Minute", min_value=0, max_value=59, value=59)
+                            with ca2:
+                                end_hour = st.number_input("Hour", min_value=0, max_value=23, value=23)
+                            with ca3:
+                                end_minute = st.number_input("Minute", min_value=0, max_value=59, value=59)
 
                         # Combine date and time into a single datetime object
                     start_datetime = datetime.combine(start_date, datetime.min.time().replace(hour=start_hour, minute=start_minute))
                     end_datetime = datetime.combine(end_date, datetime.min.time().replace(hour=end_hour, minute=end_minute))
 
                 
-                     # st.markdown("<div style='height: 150px; width: 1px; background-color: lightgray; margin: auto;'></div>", unsafe_allow_html=True)  # Vertical line
+                    #st.markdown("<div style='height: 150px; width: 1px; background-color: lightgray; margin: auto;'></div>", unsafe_allow_html=True)  # Vertical line
+                with col_strike_range:
+                    row_one = st.container()
+                    row_two = st.container()
+                    with row_one:   
+                        strike_col1, strike_col2 = st.columns(2)
+                        with strike_col1:
+                            min_strike = st.number_input("Minimum strike", min_value=0, max_value=400000, value=60000)
+                        with strike_col2:
+                            max_strike = st.number_input("Maximum strike", min_value=0, max_value=400000, value=120000)
+                    with row_two:
+                        strike_range = (min_strike, max_strike)  
+                        if 'Strike Price' in market_screener_df.columns and not market_screener_df.empty:
+                            # Filter the DataFrame for strikes within the selected range
+                            filtered_strikes_df = market_screener_df[
+                                (market_screener_df['Strike Price'] >= strike_range[0]) & 
+                                (market_screener_df['Strike Price'] <= strike_range[1])
+                            ]
+                            unique_strikes = filtered_strikes_df['Strike Price'].unique()
+                            sorted_strikes = sorted(unique_strikes, reverse=True)  # Sort in descending order
 
-                with col_range:
-                    strike_range = st.slider(
-                                            "Select strike price range",
-                                            min_value=30000,
-                                            max_value=400000,
-                                            step=500,
-                                            value=(70000, 120000)  # Default range
-                                        )
-                with col_strike:
-                    if 'Strike Price' in market_screener_df.columns and not market_screener_df.empty:
-                        # Filter the DataFrame for strikes within the selected range
-                        filtered_strikes_df = market_screener_df[
-                            (market_screener_df['Strike Price'] >= strike_range[0]) & 
-                            (market_screener_df['Strike Price'] <= strike_range[1])
-                        ]
-                        unique_strikes = filtered_strikes_df['Strike Price'].unique()
-                        sorted_strikes = sorted(unique_strikes, reverse=True)  # Sort in descending order
+                            # Create the multiselect for the filtered strike prices
+                            multi_strike_filter = st.multiselect("Select Strikes", options=sorted_strikes)
+                        else:
+                            # Handle case where no strikes are available
+                            multi_strike_filter = st.multiselect("Select Strikes", options=[], default=[], help="No available strikes to select.")
 
-                        # Create the multiselect for the filtered strike prices
-                        multi_strike_filter = st.multiselect("Select Strikes", options=sorted_strikes)
-                    else:
-                        # Handle case where no strikes are available
-                        multi_strike_filter = st.multiselect("Select Strikes", options=[], default=[], help="No available strikes to select.")
+
                 with col_expiration:
-                    market_available_dates = market_screener_df['Expiration Date'].dropna().unique().tolist()
+                    row_expiration = st.container()
+                    row_sidetype = st.container()
+                    with row_expiration:
+                        market_available_dates = market_screener_df['Expiration Date'].dropna().unique().tolist()
 
-                    # Convert to datetime to sort
-                    market_available_dates = pd.to_datetime(market_available_dates, errors='coerce')
-                    # Sort the dates
-                    sorted_market_available_dates = sorted(market_available_dates)
+                        # Convert to datetime to sort
+                        market_available_dates = pd.to_datetime(market_available_dates, errors='coerce')
+                        # Sort the dates
+                        sorted_market_available_dates = sorted(market_available_dates)
 
-                    # Optionally convert back to desired string format for display purposes
-                    sorted_market_available_dates = [date.strftime("%#d-%b-%y") for date in sorted_market_available_dates]
+                        # Optionally convert back to desired string format for display purposes
+                        sorted_market_available_dates = [date.strftime("%#d-%b-%y") for date in sorted_market_available_dates]
 
-                    selected_expiration_filter = st.multiselect("Expiration Date", sorted_market_available_dates, key="whatch_exp_filter")
+                        selected_expiration_filter = st.multiselect("Expiration Date", sorted_market_available_dates, key="whatch_exp_filter")
                     
-                with col_f4:
-                        roww1 = st.container()
-                        roww2 = st.container()
-                        with roww1:
-                            c4_1 , c4_2 = st.columns(2)
-                            with c4_1:
+                
+                    with row_sidetype:
+                            side_col1, side_col2, side_col3, side_col4 = st.columns(4)
+                            with side_col1:
                                 show_sides_buy = st.checkbox("BUY", value=True, key='show_buys')
-                            with c4_2:
                                 show_sides_sell = st.checkbox("SELL", value=True, key='show_sells')
-                        with roww2:
-                            c4_3 , c4_4 = st.columns(2)
-                            with c4_3:
+                            with side_col3:
                                 show_type_call = st.checkbox("Call", value=True, key='show_calss')
-                            with c4_4:
                                 show_type_put = st.checkbox("Put", value=True, key='show_puts')
 
-
-            start_strike, end_strike = strike_range  # Unpack the tuple to get start and end values
-            
-
-            #st.markdown("---") 
-
-            if not market_screener_df.empty:
-                # Ensure 'Entry Date' is in datetime format
-                market_screener_df['Entry Date'] = pd.to_datetime(market_screener_df['Entry Date'], errors='coerce')
-
-                # Check for any NaT values
-                if market_screener_df['Entry Date'].isna().any():
-                    st.warning("Some entries in the 'Entry Date' column were invalid and have been set to NaT.")
-                
-              
+                start_strike, end_strike = strike_range  # Unpack the tuple to get start and end values
                 # Initial filtering by strike price and date range
                 filtered_df = market_screener_df[
                         (market_screener_df['Strike Price'] >= start_strike) &
@@ -502,19 +490,36 @@ def app():
                 if types_to_filter:
                     filtered_df = filtered_df[filtered_df['Option Type'].isin(types_to_filter)]
 
+                with col_vertical:
+                    st.markdown("<div style='height: 150px; width: 1px; background-color: gray; margin: auto;'></div>", unsafe_allow_html=True)  # Vertical line
                 
-                total_options, total_amount, total_entry_values= calculate_totals_for_options(filtered_df)
-                tabs = st.tabs(["Insights",  "Top Options", "Whales" , "Data table"])
+                with col_public_details:
+                    total_options, total_amount, total_entry_values= calculate_totals_for_options(filtered_df)
+                    row_count_title = st.container()
+                    row_count = st.container()
+                    row_size_title = st.container()
+                    row_size = st.container()
+                    with row_count_title:
+                        st.markdown(f"<p style='font-size: 12px; color: gray;'> Total Counts:</p>", unsafe_allow_html=True)
+                    with row_count:
+                        st.markdown(f"<p style='font-size: 17px; font-weight: bold;'> {total_options:,}</p>", unsafe_allow_html=True)
+                    with row_size_title:
+                        st.markdown(f"<p style='font-size: 12px; color: gray;'> Total Values:</p>", unsafe_allow_html=True)
+                    with row_size:
+                        st.markdown(f"<p style='font-size: 17px;font-weight: bold;'> {total_entry_values:,.0f}</p>", unsafe_allow_html=True)
+            if not market_screener_df.empty:
+                # Ensure 'Entry Date' is in datetime format
+                market_screener_df['Entry Date'] = pd.to_datetime(market_screener_df['Entry Date'], errors='coerce')
+
+                # Check for any NaT values
+                if market_screener_df['Entry Date'].isna().any():
+                    st.warning("Some entries in the 'Entry Date' column were invalid and have been set to NaT.")
+                
+                
+                tabs = st.tabs(["Insights",  "Top Options", "Whales" , "Block Trades", "Data table"])
 
                 with tabs[0]:
-                    detail_column_1, detail_column_2, detail_column_3 = st.columns([0.2, 0.4, 0.4])
-                    with detail_column_1:
-                        st.metric(label="Positions Count", value=total_options, delta=None, delta_color="normal", help="Total Number of selected options")
-                        st.metric(label="Total Size", value=total_amount, delta=None, delta_color="normal", help="Total size of the selected options")
-                        st.metric(label="Total Entry Values", value= total_entry_values, delta=None, delta_color="normal", help="Total Entry Values of the selected options")
-                        st.markdown("---") 
-
-                        
+                    detail_column_2, detail_column_3 = st.columns(2)                       
 
                     with detail_column_2:
                         fig_2 = plot_strike_price_vs_size(filtered_df)
@@ -552,9 +557,13 @@ def app():
                     whales_fig = plot_identified_whale_trades(filtered_df, min_marker_size=8, max_marker_size=35, min_opacity=0.2, max_opacity=0.9, showlegend=True)
                     st.plotly_chart(whales_fig)
 
-
                 with tabs[3]:
-                        st.dataframe(filtered_df, use_container_width=True, hide_index=True)
+                    blocks_trades_df = filtered_df.iloc[:, -5:-1]
+                    st.dataframe(blocks_trades_df, use_container_width=True, hide_index=True)
+                with tabs[4]:
+                        # Drop the last 5 columns
+                        display_df = filtered_df.iloc[:, :-5]
+                        st.dataframe(display_df, use_container_width=True, hide_index=True)
                         
 
                     
@@ -996,7 +1005,10 @@ def style_combined_results(combined_results):
     # Format the styled DataFrame
     styled_df = styled_df.format(formatted_dict)
 
+
     return styled_df
+
+    
       
 
 if __name__ == "__main__":
@@ -1013,3 +1025,4 @@ if __name__ == "__main__":
         
         app()
         
+    

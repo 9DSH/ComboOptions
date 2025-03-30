@@ -285,38 +285,79 @@ def plot_stacked_calls_puts(df):
 
     return fig
 
+
+
+
+
 def plot_strike_price_vs_size(filtered_df):
     fig = go.Figure()
 
-    # Create a hover template that includes Strike Price, Size, Instrument, and Side
-    hover_text = (
+    # Create hover text in a vectorized manner
+    
+    filtered_df['hover_text'] = (
         "Strike Price: " + filtered_df['Strike Price'].astype(str) + "<br>" +
+        "Entry Value: " + filtered_df['Entry Value'].astype(str) + "<br>" +
         "Size: " + filtered_df['Size'].astype(str) + "<br>" +
         "Instrument: " + filtered_df['Instrument'] + "<br>" +
         "Underlying Price: " + filtered_df['Underlying Price'].astype(str) + "<br>" +
         "Entry Date: " + filtered_df['Entry Date'].astype(str) + "<br>" +
-        "Side: " + filtered_df['Side']
-
+        "Side: " + filtered_df['Side'] + "<br>" +
+        "Option Type: " + filtered_df['Option Type']
     )
 
+    # Add traces for Buy Put options (red dots with green stroke)
     fig.add_trace(go.Scatter(
-        x=filtered_df['Strike Price'],
-        y=filtered_df['Size'],
+        x=filtered_df.loc[(filtered_df['Option Type'] == 'Put') & (filtered_df['Side'] == 'BUY'), 'Strike Price'],
+        y=filtered_df.loc[(filtered_df['Option Type'] == 'Put') & (filtered_df['Side'] == 'BUY'), 'Entry Value'],
         mode='markers',
-        marker=dict(color='red', size=10, opacity=0.7),
-        name='Strike Size',
-        hoverinfo='text',  # Use custom hover text
-        hovertext=hover_text  # Set the custom hover text
+        marker=dict(color='red', size=10, opacity=0.7, line=dict(color='white', width=1)),  # Green stroke for BUY
+        name='Put Buy',
+        hoverinfo='text', 
+        hovertext=filtered_df.loc[(filtered_df['Option Type'] == 'Put') & (filtered_df['Side'] == 'BUY'), 'hover_text']
     ))
 
-    # Update the layout of the plot
+    # Add traces for Sell Put options (red dots with red stroke)
+    fig.add_trace(go.Scatter(
+        x=filtered_df.loc[(filtered_df['Option Type'] == 'Put') & (filtered_df['Side'] == 'SELL'), 'Strike Price'],
+        y=filtered_df.loc[(filtered_df['Option Type'] == 'Put') & (filtered_df['Side'] == 'SELL'), 'Entry Value'],
+        mode='markers',
+        marker=dict(color='red', size=10, opacity=0.7, line=dict(color='red', width=1)),  # Red stroke for SELL
+        name='Put Sell',
+        hoverinfo='text', 
+        hovertext=filtered_df.loc[(filtered_df['Option Type'] == 'Put') & (filtered_df['Side'] == 'SELL'), 'hover_text']
+    ))
+
+    # Add traces for Buy Call options (gray dots with green stroke)
+    fig.add_trace(go.Scatter(
+        x=filtered_df.loc[(filtered_df['Option Type'] == 'Call') & (filtered_df['Side'] == 'BUY'), 'Strike Price'],
+        y=filtered_df.loc[(filtered_df['Option Type'] == 'Call') & (filtered_df['Side'] == 'BUY'), 'Entry Value'],
+        mode='markers',
+        marker=dict(color='gray', size=10, opacity=0.7, line=dict(color='white', width=1)),  # Green stroke for BUY
+        name='Call Buy',
+        hoverinfo='text', 
+        hovertext=filtered_df.loc[(filtered_df['Option Type'] == 'Call') & (filtered_df['Side'] == 'BUY'), 'hover_text']
+    ))
+
+    # Add traces for Sell Call options (gray dots with red stroke)
+    fig.add_trace(go.Scatter(
+        x=filtered_df.loc[(filtered_df['Option Type'] == 'Call') & (filtered_df['Side'] == 'SELL'), 'Strike Price'],
+        y=filtered_df.loc[(filtered_df['Option Type'] == 'Call') & (filtered_df['Side'] == 'SELL'), 'Entry Value'],
+        mode='markers',
+        marker=dict(color='gray', size=10, opacity=0.7, line=dict(color='red', width=1)),  # Red stroke for SELL
+        name='Call Sell',
+        hoverinfo='text', 
+        hovertext=filtered_df.loc[(filtered_df['Option Type'] == 'Call') & (filtered_df['Side'] == 'SELL'), 'hover_text']
+    ))
+
+    # Update layout
     fig.update_layout(
-        title='Size by Strike Price ',
+        title='Entry Value by Strike Price',
         xaxis_title='Strike Price',
-        yaxis_title='Size',
-        showlegend=True,
-        template="plotly_white"  # Use a clean white template
+        yaxis_title='Entry Value',
+        template="plotly_white",  # Use a clean white template
+        showlegend=True
     )
+
     return fig
 
 def plot_radar_chart(df_options_for_strike):
@@ -410,8 +451,8 @@ def plot_most_traded_instruments(most_traded):
     most_traded['hover_text'] = (
         "Instrument: " + most_traded['Instrument'] + "<br>" +
         "Total Size: " + most_traded['Size'].astype(int).astype(str) + "<br>" +  # No decimal
-        "Buy Contracts: " + most_traded['BUY'].astype(str) + " - " + ((most_traded['BUY'] / most_traded['Size']) * 100).round(2).astype(str) + "%" + "<br>" +
-        "Sell Contracts: " + most_traded['SELL'].astype(str) + " - " + ((most_traded['SELL'] / most_traded['Size']) * 100).round(2).astype(str) + "%" 
+        "Buy Contracts: " + most_traded['BUY'].astype(str) + " - " + ((most_traded['BUY'] / (most_traded['SELL']+most_traded['BUY'] )) * 100).round(2).astype(str) + "%" + "<br>" +
+        "Sell Contracts: " + most_traded['SELL'].astype(str) + " - " + ((most_traded['SELL'] / (most_traded['SELL']+most_traded['BUY'] )) * 100).round(2).astype(str) + "%" 
     )
 
     # Create a pie chart using Plotly
