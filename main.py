@@ -15,6 +15,7 @@ from Analytics import Analytic_processing
 from Calculations import calculate_option_profit , calculate_totals_for_options, get_most_traded_instruments , calculate_sums_of_public_trades_profit
 from Charts import plot_strike_price_vs_size , plot_stacked_calls_puts, plot_option_profit , plot_radar_chart, plot_price_vs_entry_date, plot_most_traded_instruments , plot_underlying_price_vs_entry_value , plot_identified_whale_trades
 from Start_fetching_data import start_fetching_data_from_api,  get_btcusd_price
+import plotly.graph_objects as go
 
 warnings.filterwarnings("ignore", message=".*missing ScriptRunContext.*")
 # Configure logging
@@ -516,7 +517,7 @@ def app():
                     st.warning("Some entries in the 'Entry Date' column were invalid and have been set to NaT.")
                 
                 
-                tabs = st.tabs(["Insights",  "Top Options", "Whales" , "Block Trades", "Data table"])
+                tabs = st.tabs(["Insights",  "Top Options", "Whales" , "Strategies", "Data table"])
 
                 with tabs[0]:
                     detail_column_2, detail_column_3 = st.columns(2)                       
@@ -558,16 +559,146 @@ def app():
                     st.plotly_chart(whales_fig)
 
                 with tabs[3]:
-                    blocks_trades_df = filtered_df.iloc[:, -5:-1]
-                    st.dataframe(blocks_trades_df, use_container_width=True, hide_index=True)
-                with tabs[4]:
-                        # Drop the last 5 columns
-                        display_df = filtered_df.iloc[:, :-5]
-                        st.dataframe(display_df, use_container_width=True, hide_index=True)
-                        
-
+                    target_columns = ['BlockTrade IDs', 'BlockTrade Count', 'Combo ID', 'ComboTrade IDs']
+                    filtered_df = filtered_df.drop('hover_text', axis=1)
+                    # Separate strategy trades
+                    strategy_trades_df = filtered_df[~filtered_df[target_columns].isna().all(axis=1)]
                     
+                    if not strategy_trades_df.empty:
+                        # Group by BlockTrade IDs and Combo ID to identify unique strategies
+                        strategy_groups = strategy_trades_df.groupby(['BlockTrade IDs', 'Combo ID'])
+                        
+                        # Create subtabs for different views
+                        strategy_subtabs = st.tabs(["Strategy Overview", "Strategy Details"])
+                        
+                        with strategy_subtabs[0]:
+                            # Summary statistics for each strategy
+                            summary_stats = []
+                            for (block_id, combo_id), group in strategy_groups:
+                                # Determine strategy type based on strategy ID naming convention
+                                strategy_type = 'Complex'
+                                if combo_id and isinstance(combo_id, str):
+                                    if 'ICOND' in combo_id:
+                                        strategy_type = 'Iron Condor'
+                                    elif 'IB' in combo_id:
+                                        strategy_type = 'Iron Butterfly'
+                                    elif 'VS' in combo_id:
+                                        strategy_type = 'Vertical Spread'
+                                    elif 'STD' in combo_id:
+                                        strategy_type = 'Straddle'
+                                    elif 'STG' in combo_id:
+                                        strategy_type = 'Strangle'
+                                    elif 'CS' in combo_id:
+                                        strategy_type = 'Calendar Spread'
+                                    elif 'DS' in combo_id:
+                                        strategy_type = 'Diagonal Spread'
+                                    elif 'CDIAG' in combo_id:
+                                        strategy_type = 'Conditional Diagonal spread'
+                                    elif 'PCAL' in combo_id:
+                                        strategy_type = 'Put Calendar Spread'
+                                    elif 'PBUT' in combo_id:
+                                        strategy_type = 'Put Butterfly Spread'
+                                    elif 'CCAL' in combo_id:
+                                        strategy_type = 'Call Calendar Spread'
+                                    elif 'STRD' in combo_id:
+                                        strategy_type = 'Straddle (same strike)'
+                                    elif 'STRG' in combo_id:
+                                        strategy_type = 'Straddle (different strike)'
+                                    elif 'PS' in combo_id:
+                                        strategy_type = 'Put Spread'
+                                    elif 'RR' in combo_id:
+                                        strategy_type = 'Risk Reversal'
+                                    elif 'PDIAG' in combo_id:
+                                        strategy_type = 'Put Diagonal Spread'
+                                    elif 'CBUT' in combo_id:
+                                        strategy_type = 'Call Butterfly Spread'
+                                    
+                                    elif 'BF' in combo_id:
+                                        strategy_type = 'Butterfly'
+                                
+                                # If it's a block trade, override the strategy type
+                                summary = {
+                                    'Strategy ID': combo_id,
+                                    'Block Trade ID': block_id,
+                                    'Number of Legs': len(group),
+                                    'Total Size': group['Size'].sum(),
+                                    'Entry Time': group['Entry Date'].min(),
+                                    'Strategy Type': strategy_type
+                                }
+                                summary_stats.append(summary)
+                            
+                            summary_df = pd.DataFrame(summary_stats)
+                            st.dataframe(summary_df, use_container_width=True, hide_index=True)
+                        
+                        with strategy_subtabs[1]:
+                            # Detailed view of each strategy
+                            # Convert strategy groups to list and sort by total premium
+                            sorted_strategies = []
+                            for (block_id, combo_id), group in strategy_groups:
+                                total_premium = group['Entry Value'].sum()
+                                strategy_type = summary_df[summary_df['Strategy ID'] == combo_id]['Strategy Type'].iloc[0]
+                                sorted_strategies.append((block_id, combo_id, group, total_premium, strategy_type))
+                            
+                            # Sort by total premium in descending order
+                            sorted_strategies.sort(key=lambda x: x[3], reverse=True)
+                            
+                            for block_id, combo_id, group, total_premium, strategy_type in sorted_strategies:
+                                strategy_label = f"${total_premium:,.0f}  ---  {strategy_type} "
+                                
+                                with st.expander(strategy_label):
+                                    # Calculate strategy metrics
+                                    total_size = group['Size'].sum()
+                                    
+                                    # Display strategy metrics
+                                    col1, col2, col3 , col4 = st.columns([0.3,0.2,0.5,0.2])
+                                    with col1:
+                                        st.metric("Total Premium", f"${total_premium:,.2f}")
+                                    with col2:
+                                        st.metric("Total Size", f"{total_size:,.2f}")
+                                    with col3:
+                                        strategy_type_from_summary = summary_df[summary_df['Strategy ID'] == combo_id]['Strategy Type'].iloc[0]
+                                        st.metric("Strategy Type", strategy_type_from_summary)
+                                    
+                                    with col4:
+                                        st.metric("Number of Legs", len(group))
+                                    
+                                    # Display strategy components
+                                    st.dataframe(group, use_container_width=True, hide_index=True)
+                                    # Create visualization for this strategy
+                                    strategy_data = group.copy()
+                                    fig = go.Figure()
+                                    
+                                    for idx, row in strategy_data.iterrows():
+                                        fig.add_trace(go.Scatter(
+                                            x=[row['Entry Date']],
+                                            y=[row['Strike Price']],
+                                            mode='markers+text',
+                                            name=f"{row['Option Type']} {row['Side']}",
+                                            text=f"{row['Size']}",
+                                            marker=dict(
+                                                size=20,
+                                                symbol='circle' if row['Option Type'] == 'call' else 'square',
+                                                color='green' if row['Side'] == 'BUY' else 'red'
+                                            )
+                                        ))
+                                    
+                                    fig.update_layout(
+                                        title=f"Strategy Components Visualization",
+                                        xaxis_title="Entry Time",
+                                        yaxis_title="Strike Price",
+                                        showlegend=True
+                                    )
+                                    st.plotly_chart(fig, use_container_width=True, key=f"strategy_plot_{block_id}_{combo_id}")
+                    else:
+                        st.warning("No strategy trades found in the current selection.")
 
+                with tabs[4]:
+                        # Display the processed public trades dataframe
+                    st.dataframe(filtered_df, use_container_width=True, hide_index=True)
+                        
+                        # Display the target columns dataframe
+                        
+          
    
             else:
                 st.warning("No trades available for the selected options.")
