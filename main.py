@@ -13,7 +13,7 @@ import webbrowser
 from Fetch_data import Fetching_data
 from Analytics import Analytic_processing
 from Calculations import calculate_option_profit , calculate_totals_for_options, get_most_traded_instruments , calculate_sums_of_public_trades_profit
-from Charts import plot_strike_price_vs_size , plot_stacked_calls_puts, plot_option_profit , plot_radar_chart, plot_price_vs_entry_date, plot_most_traded_instruments , plot_underlying_price_vs_entry_value , plot_identified_whale_trades
+from Charts import plot_strike_price_vs_size , plot_stacked_calls_puts, plot_option_profit , plot_radar_chart, plot_price_vs_entry_date, plot_most_traded_instruments , plot_underlying_price_vs_entry_value , plot_identified_whale_trades, plot_strategy_components
 from Start_fetching_data import start_fetching_data_from_api,  get_btcusd_price
 import plotly.graph_objects as go
 
@@ -517,7 +517,7 @@ def app():
                     st.warning("Some entries in the 'Entry Date' column were invalid and have been set to NaT.")
                 
                 
-                tabs = st.tabs(["Insights",  "Top Options", "Whales" , "Strategies", "Data table"])
+                tabs = st.tabs(["Insights",  "Top Options", "Public Trade Strategies", "Whales" , "Data table"])
 
                 with tabs[0]:
                     detail_column_2, detail_column_3 = st.columns(2)                       
@@ -554,16 +554,10 @@ def app():
              #-----------------------------------------------
 
                 with tabs[2]:
-
-                    whales_fig = plot_identified_whale_trades(filtered_df, min_marker_size=8, max_marker_size=35, min_opacity=0.2, max_opacity=0.9, showlegend=True)
-                    st.plotly_chart(whales_fig)
-
-                with tabs[3]:
                     target_columns = ['BlockTrade IDs', 'BlockTrade Count', 'Combo ID', 'ComboTrade IDs']
                     filtered_df = filtered_df.drop('hover_text', axis=1)
                     # Separate strategy trades
                     strategy_trades_df = filtered_df[~filtered_df[target_columns].isna().all(axis=1)]
-                    
                     if not strategy_trades_df.empty:
                         # Group by BlockTrade IDs and Combo ID to identify unique strategies
                         strategy_groups = strategy_trades_df.groupby(['BlockTrade IDs', 'Combo ID'])
@@ -612,7 +606,6 @@ def app():
                                         strategy_type = 'Put Diagonal Spread'
                                     elif 'CBUT' in combo_id:
                                         strategy_type = 'Call Butterfly Spread'
-                                    
                                     elif 'BF' in combo_id:
                                         strategy_type = 'Butterfly'
                                 
@@ -658,45 +651,38 @@ def app():
                                     with col3:
                                         strategy_type_from_summary = summary_df[summary_df['Strategy ID'] == combo_id]['Strategy Type'].iloc[0]
                                         st.metric("Strategy Type", strategy_type_from_summary)
-                                    
                                     with col4:
                                         st.metric("Number of Legs", len(group))
                                     
                                     # Display strategy components
                                     st.dataframe(group, use_container_width=True, hide_index=True)
                                     # Create visualization for this strategy
-                                    strategy_data = group.copy()
-                                    fig = go.Figure()
-                                    
-                                    for idx, row in strategy_data.iterrows():
-                                        fig.add_trace(go.Scatter(
-                                            x=[row['Entry Date']],
-                                            y=[row['Strike Price']],
-                                            mode='markers+text',
-                                            name=f"{row['Option Type']} {row['Side']}",
-                                            text=f"{row['Size']}",
-                                            marker=dict(
-                                                size=20,
-                                                symbol='circle' if row['Option Type'] == 'call' else 'square',
-                                                color='green' if row['Side'] == 'BUY' else 'red'
-                                            )
-                                        ))
-                                    
-                                    fig.update_layout(
-                                        title=f"Strategy Components Visualization",
-                                        xaxis_title="Entry Time",
-                                        yaxis_title="Strike Price",
-                                        showlegend=True
-                                    )
-                                    st.plotly_chart(fig, use_container_width=True, key=f"strategy_plot_{block_id}_{combo_id}")
-                    else:
+                                    chart_col1 , chart_col2, chart_col3 = st.columns([0.2,1,0.2])
+                                    with chart_col1:
+                                        st.write("")
+                                
+                                    with chart_col2:
+
+                                        strategy_data = group.copy()
+                                        fig = plot_strategy_components(strategy_data, block_id, combo_id)
+                                        st.plotly_chart(fig, use_container_width=True, key=f"strategy_plot_{block_id}_{combo_id}")
+                                    with chart_col3:
+                                        st.write("")
+
+                    else :               
                         st.warning("No strategy trades found in the current selection.")
 
+                
+
+                with tabs[3]:
+                    
+                    processed_df = filtered_df[filtered_df[target_columns].isna().all(axis=1)]
+                    whales_fig = plot_identified_whale_trades(processed_df, min_marker_size=8, max_marker_size=35, min_opacity=0.2, max_opacity=0.9, showlegend=True)
+                    st.plotly_chart(whales_fig)
+                
                 with tabs[4]:
-                        # Display the processed public trades dataframe
-                    st.dataframe(filtered_df, use_container_width=True, hide_index=True)
-                        
-                        # Display the target columns dataframe
+                    processed_df = processed_df.iloc[:, :-4]
+                    st.dataframe(processed_df, use_container_width=True, hide_index=True)
                         
           
    

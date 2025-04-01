@@ -794,3 +794,28 @@ def plot_identified_whale_trades(df, min_marker_size, max_marker_size, min_opaci
 
     # Show the plot
     return fig
+
+def plot_strategy_components(strategy_data, block_id, combo_id):
+    fig = go.Figure()
+    
+    for idx, row in strategy_data.iterrows():
+        fig.add_trace(go.Scatter(
+            x=[row['Entry Date']],
+            y=[row['Strike Price']],
+            mode='markers+text',
+            name=f"{row['Option Type']} {row['Side']}",
+            text=f"{row['Size']}",
+            marker=dict(
+                size=20,
+                symbol='circle' if row['Option Type'] == 'call' else 'square',
+                color='green' if row['Side'] == 'BUY' else 'red'
+            )
+        ))
+    
+    fig.update_layout(
+        title=f"Strategy Components Visualization",
+        xaxis_title="Entry Time",
+        yaxis_title="Strike Price",
+        showlegend=True
+    )
+    return fig
