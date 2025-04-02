@@ -259,6 +259,64 @@ class Analytic_processing:
                 print(f"An error occurred: {e}")
                 # Optionally, you could implement a wait time before retrying on failure
                 time.sleep(30)  # Wait for 30 seconds before trying again in case of an error"""
+    
+
+    def Identify_combo_strategies(self, strategy_groups):
+        summary_stats = []
+        for (block_id, combo_id), group in strategy_groups:
+                                # Determine strategy type based on strategy ID naming convention
+                                strategy_type = 'Complex'
+                                if combo_id and isinstance(combo_id, str):
+                                    if 'ICOND' in combo_id:
+                                        strategy_type = 'Iron Condor'
+                                    elif 'IB' in combo_id:
+                                        strategy_type = 'Iron Butterfly'
+                                    elif 'VS' in combo_id:
+                                        strategy_type = 'Vertical Spread'
+                                    elif 'STD' in combo_id:
+                                        strategy_type = 'Straddle'
+                                    elif 'STG' in combo_id:
+                                        strategy_type = 'Strangle'
+                                    elif 'CS' in combo_id:
+                                        strategy_type = 'Calendar Spread'
+                                    elif 'DS' in combo_id:
+                                        strategy_type = 'Diagonal Spread'
+                                    elif 'CDIAG' in combo_id:
+                                        strategy_type = 'Conditional Diagonal spread'
+                                    elif 'PCAL' in combo_id:
+                                        strategy_type = 'Put Calendar Spread'
+                                    elif 'PBUT' in combo_id:
+                                        strategy_type = 'Put Butterfly Spread'
+                                    elif 'CCAL' in combo_id:
+                                        strategy_type = 'Call Calendar Spread'
+                                    elif 'STRD' in combo_id:
+                                        strategy_type = 'Straddle (same strike)'
+                                    elif 'STRG' in combo_id:
+                                        strategy_type = 'Straddle (different strike)'
+                                    elif 'PS' in combo_id:
+                                        strategy_type = 'Put Spread'
+                                    elif 'RR' in combo_id:
+                                        strategy_type = 'Risk Reversal'
+                                    elif 'PDIAG' in combo_id:
+                                        strategy_type = 'Put Diagonal Spread'
+                                    elif 'CBUT' in combo_id:
+                                        strategy_type = 'Call Butterfly Spread'
+                                    elif 'BF' in combo_id:
+                                        strategy_type = 'Butterfly'
+                                
+                                # If it's a block trade, override the strategy type
+                                summary = {
+                                    'Strategy ID': combo_id,
+                                    'Block Trade ID': block_id,
+                                    'Number of Legs': len(group),
+                                    'Total Size': group['Size'].sum(),
+                                    'Entry Time': group['Entry Date'].min(),
+                                    'Strategy Type': strategy_type
+                                }
+                                summary_stats.append(summary)
+                            
+        summary_df = pd.DataFrame(summary_stats)
+        return summary_df
         
         
 

@@ -567,61 +567,8 @@ def app():
                         
                         with strategy_subtabs[0]:
                             # Summary statistics for each strategy
-                            summary_stats = []
-                            for (block_id, combo_id), group in strategy_groups:
-                                # Determine strategy type based on strategy ID naming convention
-                                strategy_type = 'Complex'
-                                if combo_id and isinstance(combo_id, str):
-                                    if 'ICOND' in combo_id:
-                                        strategy_type = 'Iron Condor'
-                                    elif 'IB' in combo_id:
-                                        strategy_type = 'Iron Butterfly'
-                                    elif 'VS' in combo_id:
-                                        strategy_type = 'Vertical Spread'
-                                    elif 'STD' in combo_id:
-                                        strategy_type = 'Straddle'
-                                    elif 'STG' in combo_id:
-                                        strategy_type = 'Strangle'
-                                    elif 'CS' in combo_id:
-                                        strategy_type = 'Calendar Spread'
-                                    elif 'DS' in combo_id:
-                                        strategy_type = 'Diagonal Spread'
-                                    elif 'CDIAG' in combo_id:
-                                        strategy_type = 'Conditional Diagonal spread'
-                                    elif 'PCAL' in combo_id:
-                                        strategy_type = 'Put Calendar Spread'
-                                    elif 'PBUT' in combo_id:
-                                        strategy_type = 'Put Butterfly Spread'
-                                    elif 'CCAL' in combo_id:
-                                        strategy_type = 'Call Calendar Spread'
-                                    elif 'STRD' in combo_id:
-                                        strategy_type = 'Straddle (same strike)'
-                                    elif 'STRG' in combo_id:
-                                        strategy_type = 'Straddle (different strike)'
-                                    elif 'PS' in combo_id:
-                                        strategy_type = 'Put Spread'
-                                    elif 'RR' in combo_id:
-                                        strategy_type = 'Risk Reversal'
-                                    elif 'PDIAG' in combo_id:
-                                        strategy_type = 'Put Diagonal Spread'
-                                    elif 'CBUT' in combo_id:
-                                        strategy_type = 'Call Butterfly Spread'
-                                    elif 'BF' in combo_id:
-                                        strategy_type = 'Butterfly'
-                                
-                                # If it's a block trade, override the strategy type
-                                summary = {
-                                    'Strategy ID': combo_id,
-                                    'Block Trade ID': block_id,
-                                    'Number of Legs': len(group),
-                                    'Total Size': group['Size'].sum(),
-                                    'Entry Time': group['Entry Date'].min(),
-                                    'Strategy Type': strategy_type
-                                }
-                                summary_stats.append(summary)
-                            
-                            summary_df = pd.DataFrame(summary_stats)
-                            st.dataframe(summary_df, use_container_width=True, hide_index=True)
+                            strategy_df = analytics.Identify_combo_strategies(strategy_groups)
+                            st.dataframe(strategy_df, use_container_width=True, hide_index=True)
                         
                         with strategy_subtabs[1]:
                             # Detailed view of each strategy
@@ -629,7 +576,7 @@ def app():
                             sorted_strategies = []
                             for (block_id, combo_id), group in strategy_groups:
                                 total_premium = group['Entry Value'].sum()
-                                strategy_type = summary_df[summary_df['Strategy ID'] == combo_id]['Strategy Type'].iloc[0]
+                                strategy_type = strategy_df[strategy_df['Strategy ID'] == combo_id]['Strategy Type'].iloc[0]
                                 sorted_strategies.append((block_id, combo_id, group, total_premium, strategy_type))
                             
                             # Sort by total premium in descending order
@@ -649,7 +596,7 @@ def app():
                                     with col2:
                                         st.metric("Total Size", f"{total_size:,.2f}")
                                     with col3:
-                                        strategy_type_from_summary = summary_df[summary_df['Strategy ID'] == combo_id]['Strategy Type'].iloc[0]
+                                        strategy_type_from_summary = strategy_df[strategy_df['Strategy ID'] == combo_id]['Strategy Type'].iloc[0]
                                         st.metric("Strategy Type", strategy_type_from_summary)
                                     with col4:
                                         st.metric("Number of Legs", len(group))
@@ -664,7 +611,7 @@ def app():
                                     with chart_col2:
 
                                         strategy_data = group.copy()
-                                        fig = plot_strategy_components(strategy_data, block_id, combo_id)
+                                        fig = plot_strategy_components(strategy_data, block_id, combo_id )
                                         st.plotly_chart(fig, use_container_width=True, key=f"strategy_plot_{block_id}_{combo_id}")
                                     with chart_col3:
                                         st.write("")

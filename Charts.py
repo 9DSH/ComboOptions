@@ -252,7 +252,7 @@ def plot_stacked_calls_puts(df):
 
     # Group by Strike Price and Option Type to sum counts, buys, and sells
     grouped_data = plot_data.groupby(['Strike Price', 'Option Type']).agg(
-        Total_Calls=('Is Call', 'sum'),                                    # Count Calls
+        Total_Calls=('Is Call', 'sum'),                                   # Count Calls
         Total_Puts=('Is Put', 'sum'),                                     # Count Puts
         Buy_Total=('Side', lambda x: (x == 'BUY').sum()),               # Total Buys
         Sell_Total=('Side', lambda x: (x == 'SELL').sum())              # Total Sells
@@ -269,7 +269,7 @@ def plot_stacked_calls_puts(df):
             x=option_data['Strike Price'],
             y=option_data['Total_Calls'] if opt_type == 'Call' else option_data['Total_Puts'],
             name=f'Total {opt_type}s',
-            marker=dict(color='gray' if opt_type == 'Call' else 'red', line=dict(color='rgba(0, 0, 0, 0)', width=0)),  # No border
+            marker=dict(color='green' if opt_type == 'Call' else 'red', line=dict(color='rgba(0, 0, 0, 0)', width=0)),  # No border
             hovertemplate=f'Strike Price: %{{x}}<br>Total {opt_type}s: %{{y}}<br>Total Buys: %{{customdata[0]}}<br>Total Sells: %{{customdata[1]}}<extra></extra>',  # Update hover information for each type
             customdata=option_data[['Buy_Total', 'Sell_Total']].values  # Pass custom data for hover
         ))
@@ -293,7 +293,6 @@ def plot_strike_price_vs_size(filtered_df):
     fig = go.Figure()
 
     # Create hover text in a vectorized manner
-    
     filtered_df['hover_text'] = (
         "Strike Price: " + filtered_df['Strike Price'].astype(str) + "<br>" +
         "Entry Value: " + filtered_df['Entry Value'].astype(str) + "<br>" +
@@ -305,45 +304,45 @@ def plot_strike_price_vs_size(filtered_df):
         "Option Type: " + filtered_df['Option Type']
     )
 
-    # Add traces for Buy Put options (red dots with green stroke)
+    # Add traces for Buy Put options (downward green triangle)
     fig.add_trace(go.Scatter(
         x=filtered_df.loc[(filtered_df['Option Type'] == 'Put') & (filtered_df['Side'] == 'BUY'), 'Strike Price'],
         y=filtered_df.loc[(filtered_df['Option Type'] == 'Put') & (filtered_df['Side'] == 'BUY'), 'Entry Value'],
         mode='markers',
-        marker=dict(color='red', size=10, opacity=0.7, line=dict(color='white', width=1)),  # Green stroke for BUY
+        marker=dict(symbol='triangle-down', color='green', size=10, opacity=1, line=dict(color='black', width=0.5)),  # Downward green triangle for BUY with black border
         name='Put Buy',
         hoverinfo='text', 
         hovertext=filtered_df.loc[(filtered_df['Option Type'] == 'Put') & (filtered_df['Side'] == 'BUY'), 'hover_text']
     ))
 
-    # Add traces for Sell Put options (red dots with red stroke)
+    # Add traces for Sell Put options (downward red triangle)
     fig.add_trace(go.Scatter(
         x=filtered_df.loc[(filtered_df['Option Type'] == 'Put') & (filtered_df['Side'] == 'SELL'), 'Strike Price'],
         y=filtered_df.loc[(filtered_df['Option Type'] == 'Put') & (filtered_df['Side'] == 'SELL'), 'Entry Value'],
         mode='markers',
-        marker=dict(color='red', size=10, opacity=0.7, line=dict(color='red', width=1)),  # Red stroke for SELL
+        marker=dict(symbol='triangle-down', color='red', size=10, opacity=1, line=dict(color='black', width=0.5)),  # Downward red triangle for SELL with black border
         name='Put Sell',
         hoverinfo='text', 
         hovertext=filtered_df.loc[(filtered_df['Option Type'] == 'Put') & (filtered_df['Side'] == 'SELL'), 'hover_text']
     ))
 
-    # Add traces for Buy Call options (gray dots with green stroke)
+    # Add traces for Buy Call options (upward green triangle)
     fig.add_trace(go.Scatter(
         x=filtered_df.loc[(filtered_df['Option Type'] == 'Call') & (filtered_df['Side'] == 'BUY'), 'Strike Price'],
         y=filtered_df.loc[(filtered_df['Option Type'] == 'Call') & (filtered_df['Side'] == 'BUY'), 'Entry Value'],
         mode='markers',
-        marker=dict(color='gray', size=10, opacity=0.7, line=dict(color='white', width=1)),  # Green stroke for BUY
+        marker=dict(symbol='triangle-up', color='green', size=10, opacity=1, line=dict(color='black', width=0.5)),  # Upward green triangle for BUY with black border
         name='Call Buy',
         hoverinfo='text', 
         hovertext=filtered_df.loc[(filtered_df['Option Type'] == 'Call') & (filtered_df['Side'] == 'BUY'), 'hover_text']
     ))
 
-    # Add traces for Sell Call options (gray dots with red stroke)
+    # Add traces for Sell Call options (upward red triangle)
     fig.add_trace(go.Scatter(
         x=filtered_df.loc[(filtered_df['Option Type'] == 'Call') & (filtered_df['Side'] == 'SELL'), 'Strike Price'],
         y=filtered_df.loc[(filtered_df['Option Type'] == 'Call') & (filtered_df['Side'] == 'SELL'), 'Entry Value'],
         mode='markers',
-        marker=dict(color='gray', size=10, opacity=0.7, line=dict(color='red', width=1)),  # Red stroke for SELL
+        marker=dict(symbol='triangle-up', color='red', size=10, opacity=1, line=dict(color='black', width=0.5)),  # Upward red triangle for SELL with black border
         name='Call Sell',
         hoverinfo='text', 
         hovertext=filtered_df.loc[(filtered_df['Option Type'] == 'Call') & (filtered_df['Side'] == 'SELL'), 'hover_text']
