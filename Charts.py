@@ -1,7 +1,10 @@
 import plotly.graph_objects as go
 import pandas as pd
-from datetime import datetime
+from datetime import datetime , timedelta , timezone
 import numpy as np
+from Analytics import Analytic_processing
+
+analytics = Analytic_processing()
 
 def plot_option_profit(results_df, 
                        combo_df, 
@@ -794,27 +797,82 @@ def plot_identified_whale_trades(df, min_marker_size, max_marker_size, min_opaci
     # Show the plot
     return fig
 
-def plot_strategy_components(strategy_data, block_id, combo_id):
-    fig = go.Figure()
+def plot_strategy_profit(strategy_data, days_ahead):
+    index_price_range = np.arange(60000, 120000, 500)  # Example range
+    profit_matrix = []
+    position_labels = []
+
+    for i, position in strategy_data.iterrows():
+            # Extract necessary data for profit calculation
+            position_side = position['Side']
+            strike_price = position['Strike Price']
+            position_value = position['Price (USD)']
+            position_size = position['Size']
+            position_type = position['Option Type'].lower()
+            expiration_date_str = position['Expiration Date']
+            entry_price = position['Underlying Price']  # Assuming 'Underlying Price' is the column name for the entry price
+             
+            position_label = f"{int(strike_price)} - {position_type.upper()} - {position_side.upper()}"
+            position_labels.append(position_label)  # Add to the list of labels
     
-    for idx, row in strategy_data.iterrows():
-        fig.add_trace(go.Scatter(
-            x=[row['Entry Date']],
-            y=[row['Strike Price']],
-            mode='markers+text',
-            name=f"{row['Option Type']} {row['Side']}",
-            text=f"{row['Size']}",
-            marker=dict(
-                size=20,
-                symbol='circle' if row['Option Type'] == 'call' else 'square',
-                color='green' if row['Side'] == 'BUY' else 'red'
+            # Convert expiration date to datetime
+            expiration_date = pd.to_datetime(expiration_date_str, utc=True)
+            now_utc = datetime.now(timezone.utc)
+            time_to_expiration_days = expiration_date - now_utc - timedelta(days=days_ahead)
+            time_to_expiration_years = max(time_to_expiration_days.total_seconds() / (365 * 24 * 3600), 0.0001)
+            
+            # Calculate profits using the calculate_public_profits function
+            future_iv = position['IV (%)'] / 100
+            risk_free_rate = 0.0  # Example risk-free rate
+            
+            profits = analytics.calculate_public_profits(
+                (index_price_range, position_side, strike_price, position_value, position_size, time_to_expiration_years, risk_free_rate, future_iv, position_type)
             )
+            
+            # Append profits to the matrix
+            profit_matrix.append(profits)
+        
+        # Convert profit matrix to a numpy array for plotting
+    profit_matrix = np.array(profit_matrix)
+        
+        # Calculate the sum of profits for each underlying price
+    total_profit_row = np.sum(profit_matrix, axis=0)
+        
+        # Append the total profit row to the profit matrix
+    profit_matrix = np.vstack([profit_matrix, total_profit_row])
+        
+        # Create a Plotly figure
+    fig = go.Figure()
+
+        # Add heatmap
+    fig.add_trace(go.Heatmap(
+            z=profit_matrix,
+            x=index_price_range,
+            y=np.arange(len(strategy_data) + 1),  # Adjust for the new total profit row
+            colorscale=[
+                (0, 'red'),       # Loss
+                (0.25, 'orange'), # Small loss
+                (0.5, 'yellow'),  # Break-even
+                (0.75, 'lightgreen'), # Small profit
+                (1, 'green')      # Profit
+            ], 
+            colorbar=dict(title='Profit'),
+            hovertemplate=(
+                "Underlying Price: %{x:.0f}K<br>"  # Format x-axis value as K
+                "Profit: %{z:,.0f}<br>"  # Format z-axis value with commas
+                "<extra></extra>"  # Suppress default hover info
+            ),
+            showscale=True,
+            zsmooth=False,  # Disable smoothing to make grid lines visible
+            xgap=0.5,  # Add gap between x values
+            ygap=5   # Add gap between y values
         ))
-    
+
+        # Update layout
     fig.update_layout(
-        title=f"Strategy Components Visualization",
-        xaxis_title="Entry Time",
-        yaxis_title="Strike Price",
-        showlegend=True
-    )
+            xaxis_title='Underlying Price',
+            yaxis=dict(tickvals=np.arange(len(strategy_data) + 1), ticktext=[*position_labels,  'Total Profit']),
+            showlegend=False
+        )
+    
     return fig

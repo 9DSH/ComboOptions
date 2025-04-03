@@ -13,7 +13,7 @@ import webbrowser
 from Fetch_data import Fetching_data
 from Analytics import Analytic_processing
 from Calculations import calculate_option_profit , calculate_totals_for_options, get_most_traded_instruments , calculate_sums_of_public_trades_profit
-from Charts import plot_strike_price_vs_size , plot_stacked_calls_puts, plot_option_profit , plot_radar_chart, plot_price_vs_entry_date, plot_most_traded_instruments , plot_underlying_price_vs_entry_value , plot_identified_whale_trades, plot_strategy_components
+from Charts import plot_strike_price_vs_size , plot_stacked_calls_puts, plot_option_profit , plot_radar_chart, plot_price_vs_entry_date, plot_most_traded_instruments , plot_underlying_price_vs_entry_value , plot_identified_whale_trades, plot_strategy_profit
 from Start_fetching_data import start_fetching_data_from_api,  get_btcusd_price
 import plotly.graph_objects as go
 
@@ -592,9 +592,9 @@ def app():
                                     # Display strategy metrics
                                     col1, col2, col3 , col4 = st.columns([0.3,0.2,0.5,0.2])
                                     with col1:
-                                        st.metric("Total Premium", f"${total_premium:,.2f}")
+                                        st.metric("Total Premium", f"${total_premium:,.0f}")
                                     with col2:
-                                        st.metric("Total Size", f"{total_size:,.2f}")
+                                        st.metric("Total Size", f"{total_size:,.0f}")
                                     with col3:
                                         strategy_type_from_summary = strategy_df[strategy_df['Strategy ID'] == combo_id]['Strategy Type'].iloc[0]
                                         st.metric("Strategy Type", strategy_type_from_summary)
@@ -603,6 +603,21 @@ def app():
                                     
                                     # Display strategy components
                                     st.dataframe(group, use_container_width=True, hide_index=True)
+                                    days_left_padding , days_col , days_right_padding = st.columns([0.4,1, 0.4])
+                                    with days_col:
+                                        expiration_dates = [
+                                            (pd.to_datetime(position['Expiration Date'], utc=True) - datetime.now(timezone.utc)).days 
+                                            for i, position in group.iterrows()
+                                        ]
+                                        min_time_to_expiration_days = min(expiration_dates)
+                                        max_time_to_expiration_days = max(expiration_dates)
+                                        if max_time_to_expiration_days <= 1:
+                                            min_time_to_expiration_days = 0
+                                            max_time_to_expiration_days = 1
+                                        
+                                        # Slider for days ahead to expiration
+                                        days_ahead = st.slider("Days ahead to expiration", min_value=min_time_to_expiration_days, max_value=max_time_to_expiration_days, value=0, step=1, key=f"days_ahead_slider_{block_id}_{combo_id}")
+                                        
                                     # Create visualization for this strategy
                                     chart_col1 , chart_col2, chart_col3 = st.columns([0.2,1,0.2])
                                     with chart_col1:
@@ -611,7 +626,7 @@ def app():
                                     with chart_col2:
 
                                         strategy_data = group.copy()
-                                        fig = plot_strategy_components(strategy_data, block_id, combo_id )
+                                        fig = plot_strategy_profit(strategy_data, days_ahead)
                                         st.plotly_chart(fig, use_container_width=True, key=f"strategy_plot_{block_id}_{combo_id}")
                                     with chart_col3:
                                         st.write("")
