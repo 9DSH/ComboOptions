@@ -13,7 +13,7 @@ import webbrowser
 from Fetch_data import Fetching_data
 from Analytics import Analytic_processing
 from Calculations import calculate_option_profit , calculate_totals_for_options, get_most_traded_instruments , calculate_sums_of_public_trades_profit
-from Charts import plot_strike_price_vs_size , plot_stacked_calls_puts, plot_option_profit , plot_radar_chart, plot_price_vs_entry_date, plot_most_traded_instruments , plot_underlying_price_vs_entry_value , plot_identified_whale_trades, plot_strategy_profit
+from Charts import plot_strike_price_vs_size , plot_stacked_calls_puts, plot_option_profit , plot_radar_chart, plot_price_vs_entry_date, plot_most_traded_instruments , plot_underlying_price_vs_entry_value , plot_identified_whale_trades, plot_strategy_profit, calculate_and_plot_all_days_profits
 from Start_fetching_data import start_fetching_data_from_api,  get_btcusd_price
 import plotly.graph_objects as go
 
@@ -582,55 +582,62 @@ def app():
                             # Sort by total premium in descending order
                             sorted_strategies.sort(key=lambda x: x[3], reverse=True)
                             
-                            for block_id, combo_id, group, total_premium, strategy_type in sorted_strategies:
-                                strategy_label = f"${total_premium:,.0f}  ---  {strategy_type} "
-                                
-                                with st.expander(strategy_label):
-                                    # Calculate strategy metrics
-                                    total_size = group['Size'].sum()
-                                    
-                                    # Display strategy metrics
-                                    col1, col2, col3 , col4 = st.columns([0.3,0.2,0.5,0.2])
-                                    with col1:
-                                        st.metric("Total Premium", f"${total_premium:,.0f}")
-                                    with col2:
-                                        st.metric("Total Size", f"{total_size:,.0f}")
-                                    with col3:
-                                        strategy_type_from_summary = strategy_df[strategy_df['Strategy ID'] == combo_id]['Strategy Type'].iloc[0]
-                                        st.metric("Strategy Type", strategy_type_from_summary)
-                                    with col4:
-                                        st.metric("Number of Legs", len(group))
-                                    
-                                    # Display strategy components
-                                    st.dataframe(group, use_container_width=True, hide_index=True)
-                                    days_left_padding , days_col , days_right_padding = st.columns([0.4,1, 0.4])
-                                    with days_col:
-                                        expiration_dates = [
-                                            (pd.to_datetime(position['Expiration Date'], utc=True) - datetime.now(timezone.utc)).days 
-                                            for i, position in group.iterrows()
-                                        ]
-                                        min_time_to_expiration_days = min(expiration_dates)
-                                        max_time_to_expiration_days = max(expiration_dates)
-                                        if max_time_to_expiration_days <= 1:
-                                            min_time_to_expiration_days = 0
-                                            max_time_to_expiration_days = 1
-                                        
-                                        # Slider for days ahead to expiration
-                                        days_ahead = st.slider("Days ahead to expiration", min_value=min_time_to_expiration_days, max_value=max_time_to_expiration_days, value=0, step=1, key=f"days_ahead_slider_{block_id}_{combo_id}")
-                                        
-                                    # Create visualization for this strategy
-                                    chart_col1 , chart_col2, chart_col3 = st.columns([0.2,1,0.2])
-                                    with chart_col1:
-                                        st.write("")
-                                
-                                    with chart_col2:
+                            from concurrent.futures import ThreadPoolExecutor
 
-                                        strategy_data = group.copy()
-                                        fig = plot_strategy_profit(strategy_data, days_ahead)
-                                        st.plotly_chart(fig, use_container_width=True, key=f"strategy_plot_{block_id}_{combo_id}")
-                                    with chart_col3:
-                                        st.write("")
+                            def calculate_profits(strategy_data):
+                                # Calculate profits using multithreading
+                                with ThreadPoolExecutor() as executor:
+                                    future_all_days_profits = executor.submit(calculate_and_plot_all_days_profits, strategy_data)
+                                    future_strategy_profit = executor.submit(plot_strategy_profit, strategy_data)
+                                    
+                                    # Retrieve results
+                                    fig_profit = future_all_days_profits.result()
+                                    fig_strategy = future_strategy_profit.result()
+                                
+                                return fig_profit, fig_strategy
 
+                            # Create a list of strategy labels for the selectbox
+                            strategy_labels = [f"${total_premium:,.0f}  ---  {strategy_type}" for _, _, _, total_premium, strategy_type in sorted_strategies]
+                            
+                            # Use a selectbox to choose a strategy
+                            selected_strategy_label = st.selectbox("Select a Strategy", strategy_labels)
+                            
+                            # Find the selected strategy details
+                            selected_strategy = next((s for s in sorted_strategies if f"${s[3]:,.0f}  ---  {s[4]}" == selected_strategy_label), None)
+                            
+                            if selected_strategy:
+                                block_id, combo_id, group, total_premium, strategy_type = selected_strategy
+                                
+                                # Calculate strategy metrics
+                                total_size = group['Size'].sum()
+                                
+                                # Display strategy metrics
+                                col1, col2, col3, col4 = st.columns([0.3, 0.2, 0.5, 0.2])
+                                with col1:
+                                    st.metric("Total Premium", f"${total_premium:,.0f}")
+                                with col2:
+                                    st.metric("Total Size", f"{total_size:,.0f}")
+                                with col3:
+                                    strategy_type_from_summary = strategy_df[strategy_df['Strategy ID'] == combo_id]['Strategy Type'].iloc[0]
+                                    st.metric("Strategy Type", strategy_type_from_summary)
+                                with col4:
+                                    st.metric("Number of Legs", len(group))
+                                
+                                # Display strategy components
+                                st.dataframe(group, use_container_width=True, hide_index=True)   
+                                # Create visualization for this strategy
+                                chart_col1, chart_col2 = st.columns(2)
+                                strategy_data = group.copy()
+                                
+                                # Calculate profits using multithreading
+                                fig_profit, fig_strategy = calculate_profits(strategy_data)
+                                
+                                with chart_col1:
+                                    st.plotly_chart(fig_strategy, use_container_width=True, key=f"strategy_plot_{block_id}_{combo_id}")
+
+                                with chart_col2:
+                                    st.plotly_chart(fig_profit, use_container_width=True, key=f"alldays_plot_{block_id}_{combo_id}")
+                              
                     else :               
                         st.warning("No strategy trades found in the current selection.")
 

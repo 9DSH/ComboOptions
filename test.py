@@ -27,6 +27,68 @@ for (block_id, combo_id), group in strategy_groups:
 # Sort by total premium in descending order
 sorted_strategies.sort(key=lambda x: x[3], reverse=True)
 
+# Function to calculate profits and create a plot
+def calculate_and_plot_profits(group):
+    # Calculate the minimum and maximum time to expiration in days for existing positions
+    expiration_dates = [
+        (pd.to_datetime(position['Expiration Date'], utc=True) - datetime.now(timezone.utc)).days 
+        for i, position in group.iterrows()
+    ]
+    min_time_to_expiration_days = min(expiration_dates)
+    max_time_to_expiration_days = max(expiration_dates)
+    if max_time_to_expiration_days <= 1:
+        min_time_to_expiration_days = 0
+        max_time_to_expiration_days = 1
+    
+    # Calculate profits for each day until expiration
+    days_to_expiration = np.arange(min_time_to_expiration_days, max_time_to_expiration_days + 1)
+    profit_over_days = {day: [] for day in days_to_expiration}
+
+    for day in days_to_expiration:
+        daily_profits = []
+        for i, position in group.iterrows():
+            # Calculate profits for the current day
+            expiration_date = pd.to_datetime(position['Expiration Date'], utc=True)
+            now_utc = datetime.now(timezone.utc)
+            time_to_expiration_days = expiration_date - now_utc - timedelta(days=int(day))  # Convert to int
+            
+            time_to_expiration_years = max(time_to_expiration_days.total_seconds() / (365 * 24 * 3600), 0.0001)
+            
+            future_iv = position['IV (%)'] / 100
+            risk_free_rate = 0.0  # Example risk-free rate
+            
+            profits = analytics.calculate_public_profits(
+                (np.arange(60000, 120000, 500), position['Side'], position['Strike Price'], position['Price (USD)'], 
+                 position['Size'], time_to_expiration_years, risk_free_rate, future_iv, position['Option Type'].lower())
+            )
+            
+            daily_profits.append(profits)
+        
+        # Sum profits for the current day
+        total_daily_profit = np.sum(daily_profits, axis=0)
+        profit_over_days[day] = total_daily_profit
+
+    # Create a Plotly line chart for profits over all days
+    fig_profit = go.Figure()
+
+    for day in days_to_expiration:
+        fig_profit.add_trace(go.Scatter(
+            x=np.arange(60000, 120000, 500),
+            y=profit_over_days[day],
+            mode='lines+markers',
+            name=f'Profit for {day} Days to Expiration'
+        ))
+
+    # Update layout for the profit chart
+    fig_profit.update_layout(
+        title='Profit for Each Day to Expiration',
+        xaxis_title='Underlying Price',
+        yaxis_title='Profit',
+        showlegend=True
+    )
+
+    return fig_profit
+
 # Streamlit app
 st.title("Strategy Profits Visualization")
 
@@ -36,88 +98,8 @@ for block_id, combo_id, group, total_premium, strategy_type in sorted_strategies
     with st.expander(f"Block ID: {block_id}, Combo ID: {combo_id} - {strategy_label}"):
         st.write(group)
         
-        # Calculate the minimum and maximum time to expiration in days for existing positions
-        expiration_dates = [
-            (pd.to_datetime(position['Expiration Date'], utc=True) - datetime.now(timezone.utc)).days 
-            for i, position in group.iterrows()
-        ]
-        min_time_to_expiration_days = min(expiration_dates)
-        max_time_to_expiration_days = max(expiration_dates)
-        if max_time_to_expiration_days <= 1:
-            min_time_to_expiration_days = 0
-            max_time_to_expiration_days = 1
-        
-        # Slider for days ahead to expiration
-        days_ahead = st.slider("Days ahead to expiration", min_value=min_time_to_expiration_days, max_value=max_time_to_expiration_days, value=0, step=1, key=f"days_ahead_slider_{block_id}_{combo_id}")
-        
-        # Prepare data for heatmap
-        index_price_range = np.arange(60000, 120000, 500)  # Example range
-        profit_matrix = []
-        position_labels = []
+        # Call the function to calculate profits and create the plot
+        fig_profit = calculate_and_plot_profits(group)
 
-        for i, position in group.iterrows():
-            # Extract necessary data for profit calculation
-            position_side = position['Side']
-            strike_price = position['Strike Price']
-            position_value = position['Price (USD)']
-            position_size = position['Size']
-            position_type = position['Option Type'].lower()
-            expiration_date_str = position['Expiration Date']
-            entry_price = position['Underlying Price']  # Assuming 'Underlying Price' is the column name for the entry price
-             
-            position_label = f"{int(strike_price)} - {position_type.upper()} - {position_side.upper()}"
-            position_labels.append(position_label)  # Add to the list of labels
-    
-            # Convert expiration date to datetime
-            expiration_date = pd.to_datetime(expiration_date_str, utc=True)
-            now_utc = datetime.now(timezone.utc)
-            time_to_expiration_days = expiration_date - now_utc - timedelta(days=days_ahead)
-            time_to_expiration_years = max(time_to_expiration_days.total_seconds() / (365 * 24 * 3600), 0.0001)
-            
-            # Calculate profits using the calculate_public_profits function
-            future_iv = position['IV (%)'] / 100
-            risk_free_rate = 0.0  # Example risk-free rate
-            
-            profits = analytics.calculate_public_profits(
-                (index_price_range, position_side, strike_price, position_value, position_size, time_to_expiration_years, risk_free_rate, future_iv, position_type)
-            )
-            
-            # Append profits to the matrix
-            profit_matrix.append(profits)
-        
-        # Convert profit matrix to a numpy array for plotting
-        profit_matrix = np.array(profit_matrix)
-        
-        # Calculate the sum of profits for each underlying price
-        total_profit_row = np.sum(profit_matrix, axis=0)
-        
-        # Append the total profit row to the profit matrix
-        profit_matrix = np.vstack([profit_matrix, total_profit_row])
-        
-        # Create a Plotly figure
-        fig = go.Figure()
-
-        # Add heatmap
-        fig.add_trace(go.Heatmap(
-            z=profit_matrix,
-            x=index_price_range,
-            y=np.arange(len(group) + 1),  # Adjust for the new total profit row
-            colorscale=[(0, 'red'), (0.5, 'yellow'), (1, 'green')], 
-            colorbar=dict(title='Profit'),
-            hovertemplate=(
-                "Underlying Price: %{x:.0f}K<br>"  # Format x-axis value as K
-                "Profit: %{z:,.0f}<br>"  # Format z-axis value with commas
-                "<extra></extra>"  # Suppress default hover info
-            )
-        ))
-
-        # Update layout
-        fig.update_layout(
-            title='Profit Heatmap',
-            xaxis_title='Underlying Price',
-            yaxis=dict(tickvals=np.arange(len(group) + 1), ticktext=[*position_labels,  'Total Profit']),
-            showlegend=False
-        )
-        
-        # Display the plot in Streamlit
-        st.plotly_chart(fig)
+        # Display the profit chart in Streamlit
+        st.plotly_chart(fig_profit)

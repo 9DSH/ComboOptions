@@ -298,7 +298,7 @@ def plot_strike_price_vs_size(filtered_df):
     # Create hover text in a vectorized manner
     filtered_df['hover_text'] = (
         "Strike Price: " + filtered_df['Strike Price'].astype(str) + "<br>" +
-        "Entry Value: " + filtered_df['Entry Value'].astype(str) + "<br>" +
+        "Entry Value: " + filtered_df['Entry Value'].apply(lambda x: f"{int(x):,}").astype(str) + "<br>" +
         "Size: " + filtered_df['Size'].astype(str) + "<br>" +
         "Instrument: " + filtered_df['Instrument'] + "<br>" +
         "Underlying Price: " + filtered_df['Underlying Price'].astype(str) + "<br>" +
@@ -334,7 +334,7 @@ def plot_strike_price_vs_size(filtered_df):
         x=filtered_df.loc[(filtered_df['Option Type'] == 'Call') & (filtered_df['Side'] == 'BUY'), 'Strike Price'],
         y=filtered_df.loc[(filtered_df['Option Type'] == 'Call') & (filtered_df['Side'] == 'BUY'), 'Entry Value'],
         mode='markers',
-        marker=dict(symbol='triangle-up', color='green', size=10, opacity=1, line=dict(color='black', width=0.5)),  # Upward green triangle for BUY with black border
+        marker=dict(symbol='triangle-up', color='teal', size=10, opacity=1, line=dict(color='black', width=0.5)),  # Upward teal triangle for BUY with black border
         name='Call Buy',
         hoverinfo='text', 
         hovertext=filtered_df.loc[(filtered_df['Option Type'] == 'Call') & (filtered_df['Side'] == 'BUY'), 'hover_text']
@@ -345,7 +345,7 @@ def plot_strike_price_vs_size(filtered_df):
         x=filtered_df.loc[(filtered_df['Option Type'] == 'Call') & (filtered_df['Side'] == 'SELL'), 'Strike Price'],
         y=filtered_df.loc[(filtered_df['Option Type'] == 'Call') & (filtered_df['Side'] == 'SELL'), 'Entry Value'],
         mode='markers',
-        marker=dict(symbol='triangle-up', color='red', size=10, opacity=1, line=dict(color='black', width=0.5)),  # Upward red triangle for SELL with black border
+        marker=dict(symbol='triangle-up', color='darkorange', size=10, opacity=1, line=dict(color='black', width=0.5)),  # Upward dark orange triangle for SELL with black border
         name='Call Sell',
         hoverinfo='text', 
         hovertext=filtered_df.loc[(filtered_df['Option Type'] == 'Call') & (filtered_df['Side'] == 'SELL'), 'hover_text']
@@ -797,7 +797,7 @@ def plot_identified_whale_trades(df, min_marker_size, max_marker_size, min_opaci
     # Show the plot
     return fig
 
-def plot_strategy_profit(strategy_data, days_ahead):
+def plot_strategy_profit(strategy_data):
     index_price_range = np.arange(60000, 120000, 500)  # Example range
     profit_matrix = []
     position_labels = []
@@ -818,7 +818,7 @@ def plot_strategy_profit(strategy_data, days_ahead):
             # Convert expiration date to datetime
             expiration_date = pd.to_datetime(expiration_date_str, utc=True)
             now_utc = datetime.now(timezone.utc)
-            time_to_expiration_days = expiration_date - now_utc - timedelta(days=days_ahead)
+            time_to_expiration_days = expiration_date - now_utc 
             time_to_expiration_years = max(time_to_expiration_days.total_seconds() / (365 * 24 * 3600), 0.0001)
             
             # Calculate profits using the calculate_public_profits function
@@ -875,4 +875,74 @@ def plot_strategy_profit(strategy_data, days_ahead):
             showlegend=False
         )
     
+
+    
+    
     return fig
+
+
+
+# Function to calculate profits and create a plot
+def calculate_and_plot_all_days_profits(group):
+    # Calculate the minimum and maximum time to expiration in days for existing positions
+    expiration_dates = [
+        (pd.to_datetime(position['Expiration Date'], utc=True) - datetime.now(timezone.utc)).days 
+        for i, position in group.iterrows()
+    ]
+    max_time_to_expiration_days = max(expiration_dates)
+    if max_time_to_expiration_days <= 1:
+        max_time_to_expiration_days = 1
+    
+    # Calculate profits for each day until expiration
+    days_to_expiration = np.arange(1, max_time_to_expiration_days + 1)
+    profit_over_days = {day: [] for day in days_to_expiration}
+    
+    for day in days_to_expiration:
+        daily_profits = []
+        for i, position in group.iterrows():
+            # Calculate profits for the current day
+            expiration_date = pd.to_datetime(position['Expiration Date'], utc=True)
+            now_utc = datetime.now(timezone.utc)
+            time_to_expiration_days = expiration_date - now_utc - timedelta(days=int(day))  # Convert to int
+            
+            time_to_expiration_years = max(time_to_expiration_days.total_seconds() / (365 * 24 * 3600), 0.0001)
+            
+            future_iv = position['IV (%)'] / 100
+            risk_free_rate = 0.0  # Example risk-free rate
+            
+            profits = analytics.calculate_public_profits(
+                (np.arange(60000, 120000, 500), position['Side'], position['Strike Price'], position['Price (USD)'], 
+                 position['Size'], time_to_expiration_years, risk_free_rate, future_iv, position['Option Type'].lower())
+            )
+            
+            daily_profits.append(profits)
+        
+        # Sum profits for the current day
+        total_daily_profit = np.sum(daily_profits, axis=0)
+        profit_over_days[day] = total_daily_profit
+
+    # Create a Plotly line chart for profits over all days
+    fig_profit = go.Figure()
+
+    for day in days_to_expiration:
+        fig_profit.add_trace(go.Scatter(
+            x=np.arange(60000, 120000, 500),
+            y=profit_over_days[day],
+            mode='lines',
+            hovertemplate=(
+                "Underlying Price: %{x:.0f}K<br>"  # Format x-axis value as K\
+                "Days to Expiration: %{text}<br>"  # Add number of days to expiration
+                "Profit: %{y:,.0f}<br>"  # Format y-axis value with commas
+                "<extra></extra>"  # Suppress default hover info
+            ),
+            text=[f"{day} days" for _ in range(len(profit_over_days[day]))]  # Add day information for hover
+        ))
+
+    # Update layout for the profit chart
+    fig_profit.update_layout(
+        xaxis_title='Underlying Price',
+        yaxis_title='Profit',
+        showlegend=False
+    )
+
+    return fig_profit
