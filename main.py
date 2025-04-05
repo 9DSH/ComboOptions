@@ -15,7 +15,8 @@ from Analytics import Analytic_processing
 from Calculations import calculate_option_profit , calculate_totals_for_options, get_most_traded_instruments , calculate_sums_of_public_trades_profit
 from Charts import plot_strike_price_vs_size , plot_stacked_calls_puts, plot_option_profit , plot_radar_chart, plot_price_vs_entry_date, plot_most_traded_instruments , plot_underlying_price_vs_entry_value , plot_identified_whale_trades, plot_strategy_profit, calculate_and_plot_all_days_profits
 from Start_fetching_data import start_fetching_data_from_api,  get_btcusd_price
-import plotly.graph_objects as go
+import plotly.graph_objects as go 
+from concurrent.futures import ThreadPoolExecutor
 
 warnings.filterwarnings("ignore", message=".*missing ScriptRunContext.*")
 # Configure logging
@@ -103,7 +104,7 @@ def app():
         
         # Initialize session state for inputs if they don't exist
         if 'selected_date' not in st.session_state:
-            st.session_state.selected_date = fetch_data.fetch_available_dates()[0]  # Default to first date
+            st.session_state.selected_date = (pd.to_datetime(datetime.now()) + pd.Timedelta(days=1)).strftime('%Y-%m-%d')  # Default to tomorrow's date
         if 'option_symbol' not in st.session_state:
             st.session_state.option_symbol = None  # Initialize this as None or an empty value
         if 'quantity' not in st.session_state:
@@ -556,8 +557,10 @@ def app():
                 with tabs[2]:
                     target_columns = ['BlockTrade IDs', 'BlockTrade Count', 'Combo ID', 'ComboTrade IDs']
                     filtered_df = filtered_df.drop('hover_text', axis=1)
+                    
+                    filtered_startegy = filtered_df.copy()
                     # Separate strategy trades
-                    strategy_trades_df = filtered_df[~filtered_df[target_columns].isna().all(axis=1)]
+                    strategy_trades_df = filtered_startegy[~filtered_startegy[target_columns].isna().all(axis=1)]
                     if not strategy_trades_df.empty:
                         # Group by BlockTrade IDs and Combo ID to identify unique strategies
                         strategy_groups = strategy_trades_df.groupby(['BlockTrade IDs', 'Combo ID'])
@@ -581,8 +584,6 @@ def app():
                             
                             # Sort by total premium in descending order
                             sorted_strategies.sort(key=lambda x: x[3], reverse=True)
-                            
-                            from concurrent.futures import ThreadPoolExecutor
 
                             def calculate_profits(strategy_data):
                                 # Calculate profits using multithreading
@@ -597,13 +598,25 @@ def app():
                                 return fig_profit, fig_strategy
 
                             # Create a list of strategy labels for the selectbox
-                            strategy_labels = [f"${total_premium:,.0f}  ---  {strategy_type}" for _, _, _, total_premium, strategy_type in sorted_strategies]
-                            
+                            def format_value(value):
+                                return f"{value/1000:.0f}k" if value > 1000 else f"{value:,.0f}"
+
+                            strategy_labels = []
+                            for _, _, group, total_premium, strategy_type in sorted_strategies:
+                                option_details = " | ".join(
+                                    f"{row['Side']}-{row['Option Type']}-{int(row['Strike Price'])}-{format_value(row['Entry Value'])}"
+                                    for _, row in group.iterrows()
+                                )
+                                strategy_labels.append(f"{format_value(total_premium)} -- {option_details}")
+
                             # Use a selectbox to choose a strategy
                             selected_strategy_label = st.selectbox("Select a Strategy", strategy_labels)
                             
                             # Find the selected strategy details
-                            selected_strategy = next((s for s in sorted_strategies if f"${s[3]:,.0f}  ---  {s[4]}" == selected_strategy_label), None)
+                            selected_strategy = next((s for s in sorted_strategies if f"{format_value(s[3])} -- " + " | ".join(
+                                f"{row['Side']}-{row['Option Type']}-{int(row['Strike Price'])}-{format_value(row['Entry Value'])}"
+                                for _, row in s[2].iterrows()
+                            ) == selected_strategy_label), None)
                             
                             if selected_strategy:
                                 block_id, combo_id, group, total_premium, strategy_type = selected_strategy
@@ -614,7 +627,7 @@ def app():
                                 # Display strategy metrics
                                 col1, col2, col3, col4 = st.columns([0.3, 0.2, 0.5, 0.2])
                                 with col1:
-                                    st.metric("Total Premium", f"${total_premium:,.0f}")
+                                    st.metric("Total Premium", f"${format_value(total_premium)}")
                                 with col2:
                                     st.metric("Total Size", f"{total_size:,.0f}")
                                 with col3:
@@ -644,14 +657,21 @@ def app():
                 
 
                 with tabs[3]:
-                    
-                    processed_df = filtered_df[filtered_df[target_columns].isna().all(axis=1)]
-                    whales_fig = plot_identified_whale_trades(processed_df, min_marker_size=8, max_marker_size=35, min_opacity=0.2, max_opacity=0.9, showlegend=True)
+                    whale_cal1,whale_cal2,whale_cal3 = st.columns([0.5,1,1])
+                    with whale_cal1:
+                        entry_filter = st.number_input("Set Entry Filter Value", min_value=0, value=10000, step=100)
+                    whales_fig = plot_identified_whale_trades(filtered_df, min_marker_size=8, max_marker_size=35, min_opacity=0.2, max_opacity=0.9, showlegend=True, entry_filter = entry_filter )
                     st.plotly_chart(whales_fig)
                 
                 with tabs[4]:
-                    processed_df = processed_df.iloc[:, :-4]
-                    st.dataframe(processed_df, use_container_width=True, hide_index=True)
+                    datatable = st.tabs(["Raw Data", "Processed Data"])
+                    with datatable[0]:
+                        st.dataframe(filtered_df, use_container_width=True, hide_index=True)
+                    with datatable[1]:
+                        processed_df = filtered_df[filtered_df[target_columns].isna().all(axis=1)]
+                        processed_df = processed_df.iloc[:, :-4]
+                        st.dataframe(processed_df, use_container_width=True, hide_index=True)
+
                         
           
    

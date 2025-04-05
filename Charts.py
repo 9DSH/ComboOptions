@@ -279,7 +279,6 @@ def plot_stacked_calls_puts(df):
 
     # Update layout settings
     fig.update_layout(
-        title='Open Interest by Strike',
         xaxis_title='Strike Price',
         yaxis_title='Total Number',
         barmode='stack',  # Set the bar mode to stack
@@ -297,14 +296,14 @@ def plot_strike_price_vs_size(filtered_df):
 
     # Create hover text in a vectorized manner
     filtered_df['hover_text'] = (
-        "Strike Price: " + filtered_df['Strike Price'].astype(str) + "<br>" +
+        "Strike Price: " + filtered_df['Strike Price'].apply(lambda x: f"{int(x/1000)}k" if x >= 1000 else f"{int(x):,}").astype(str) + "<br>" +
         "Entry Value: " + filtered_df['Entry Value'].apply(lambda x: f"{int(x):,}").astype(str) + "<br>" +
         "Size: " + filtered_df['Size'].astype(str) + "<br>" +
-        "Instrument: " + filtered_df['Instrument'] + "<br>" +
-        "Underlying Price: " + filtered_df['Underlying Price'].astype(str) + "<br>" +
-        "Entry Date: " + filtered_df['Entry Date'].astype(str) + "<br>" +
         "Side: " + filtered_df['Side'] + "<br>" +
-        "Option Type: " + filtered_df['Option Type']
+        "Option Type: " + filtered_df['Option Type'] +"<br>" +
+        "Entry Date: " + filtered_df['Entry Date'].astype(str) + "<br>" +
+        "Expiration Date: " + filtered_df['Expiration Date'].astype(str) + "<br>" +
+        "Underlying Price: " + filtered_df['Underlying Price'].astype(str) + "<br>" 
     )
 
     # Add traces for Buy Put options (downward green triangle)
@@ -353,7 +352,6 @@ def plot_strike_price_vs_size(filtered_df):
 
     # Update layout
     fig.update_layout(
-        title='Entry Value by Strike Price',
         xaxis_title='Strike Price',
         yaxis_title='Entry Value',
         template="plotly_white",  # Use a clean white template
@@ -403,7 +401,7 @@ def plot_radar_chart(df_options_for_strike):
             bgcolor='rgba(0,0,0,0)',  # Set plot background to black
             radialaxis=dict(
                 visible=True,
-                range=[0, max(values) + 10],  # Adjust the range as necessary
+                 range=[0, max(values) + 10],  # Adjust the range as necessary
             ),
             angularaxis=dict(
                 tickcolor='white',  # Color of the angular ticks
@@ -643,7 +641,7 @@ def plot_price_vs_entry_date(df):
     # Show the plot
     return fig
 
-def plot_identified_whale_trades(df, min_marker_size, max_marker_size, min_opacity, max_opacity, showlegend=True):
+def plot_identified_whale_trades(df, min_marker_size, max_marker_size, min_opacity, max_opacity, showlegend=True, entry_filter=None):
     # Ensure 'Entry Date' is in datetime format
     df['Entry Date'] = pd.to_datetime(df['Entry Date'])
 
@@ -720,6 +718,10 @@ def plot_identified_whale_trades(df, min_marker_size, max_marker_size, min_opaci
     # Combine grouped DataFrames
     combined_grouped = pd.concat([grouped_block_trades, grouped_other_trades], ignore_index=True)
 
+    # Apply entry_filter if provided at the last stage before plotting
+    if entry_filter is not None:
+        combined_grouped = combined_grouped[combined_grouped['total_size'] > entry_filter]
+
     # Function for scaling marker size and opacity
     def compute_marker_size_and_opacity(group_instances, total_size, max_instances, max_total_size):
         # Calculate marker size
@@ -764,7 +766,7 @@ def plot_identified_whale_trades(df, min_marker_size, max_marker_size, min_opaci
             'Strike Price: ' + str(strike_price) + '<br>' +
             'Side: ' + str(option_side) + '<br>' +
             'Type: ' + str(option_type) + '<br>' +
-            'Total Premium: ' + f'{total_size:.1f}' + '<br>' +
+            'Total Values: ' + f'{total_size:,.0f}' + '<br>' +
             'Expiration Date: ' + str(option_expiration) + '<br>' +
             'Instances: ' + str(instances_count) +
             '<extra></extra>'  # Extra will suppress default hover info

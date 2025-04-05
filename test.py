@@ -28,7 +28,7 @@ for (block_id, combo_id), group in strategy_groups:
 sorted_strategies.sort(key=lambda x: x[3], reverse=True)
 
 # Function to calculate profits and create a plot
-def calculate_and_plot_profits(group):
+def calculate_and_plot_all_days_profits(group):
     # Calculate the minimum and maximum time to expiration in days for existing positions
     expiration_dates = [
         (pd.to_datetime(position['Expiration Date'], utc=True) - datetime.now(timezone.utc)).days 
@@ -99,7 +99,7 @@ for block_id, combo_id, group, total_premium, strategy_type in sorted_strategies
         st.write(group)
         
         # Call the function to calculate profits and create the plot
-        fig_profit = calculate_and_plot_profits(group)
+        fig_profit = calculate_and_plot_all_days_profits(group)
 
         # Display the profit chart in Streamlit
         st.plotly_chart(fig_profit)
