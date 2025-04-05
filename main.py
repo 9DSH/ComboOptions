@@ -104,7 +104,7 @@ def app():
         
         # Initialize session state for inputs if they don't exist
         if 'selected_date' not in st.session_state:
-            st.session_state.selected_date = (pd.to_datetime(datetime.now()) + pd.Timedelta(days=1)).strftime('%Y-%m-%d')  # Default to tomorrow's date
+            st.session_state.selected_date = fetch_data.fetch_available_dates()[0]
         if 'option_symbol' not in st.session_state:
             st.session_state.option_symbol = None  # Initialize this as None or an empty value
         if 'quantity' not in st.session_state:
