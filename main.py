@@ -657,7 +657,7 @@ def app():
                 
 
                 with tabs[3]:
-                    whale_cal1,whale_cal2,whale_cal3 = st.columns([0.5,1,1])
+                    whale_cal1,whale_cal2, whale_cal3 = st.columns([0.5,1,1])
                     with whale_cal1:
                         entry_filter = st.number_input("Set Entry Filter Value", min_value=0, value=10000, step=100)
                     whales_fig = plot_identified_whale_trades(filtered_df, min_marker_size=8, max_marker_size=35, min_opacity=0.2, max_opacity=0.9, showlegend=True, entry_filter = entry_filter )
@@ -670,7 +670,26 @@ def app():
                     with datatable[1]:
                         processed_df = filtered_df[filtered_df[target_columns].isna().all(axis=1)]
                         processed_df = processed_df.iloc[:, :-4]
-                        st.dataframe(processed_df, use_container_width=True, hide_index=True)
+                        processed_df = processed_df.sort_values(by='Entry Date', ascending=False)  # Sort by entry date
+                        st.dataframe(processed_df, use_container_width=True, hide_index=False)  # Show index
+                        
+                        analyze_col1, analyze_col2 = st.columns([0.5,1])
+                        # Create a selectbox for the user to choose an index from the processed_df
+                        with analyze_col1:
+                            selected_index = st.selectbox("Select an Index to Analyze", options=processed_df.index, key="analyze_profit_select")
+
+                        with analyze_col2:
+                            if selected_index is not None:
+                                # Filter the raw data for the selected index
+                                selected_option_data = filtered_df.loc[[selected_index]]
+
+                                # Calculate profits using the existing function
+                                fig_profit = calculate_and_plot_all_days_profits(selected_option_data)
+
+                                # Display the profit chart
+                                st.plotly_chart(fig_profit)
+
+
 
                         
           

@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime , timedelta , timezone
 import numpy as np
 from Analytics import Analytic_processing
+from Calculations import calculate_profit
 
 analytics = Analytic_processing()
 
@@ -800,7 +801,7 @@ def plot_identified_whale_trades(df, min_marker_size, max_marker_size, min_opaci
     return fig
 
 def plot_strategy_profit(strategy_data):
-    index_price_range = np.arange(60000, 120000, 500)  # Example range
+    index_price_range = np.arange(50000, 120000, 1000)  # Example range
     profit_matrix = []
     position_labels = []
 
@@ -811,25 +812,29 @@ def plot_strategy_profit(strategy_data):
             position_value = position['Price (USD)']
             position_size = position['Size']
             position_type = position['Option Type'].lower()
-            expiration_date_str = position['Expiration Date']
-            entry_price = position['Underlying Price']  # Assuming 'Underlying Price' is the column name for the entry price
-             
+
             position_label = f"{int(strike_price)} - {position_type.upper()} - {position_side.upper()}"
             position_labels.append(position_label)  # Add to the list of labels
-    
-            # Convert expiration date to datetime
-            expiration_date = pd.to_datetime(expiration_date_str, utc=True)
-            now_utc = datetime.now(timezone.utc)
-            time_to_expiration_days = expiration_date - now_utc 
-            time_to_expiration_years = max(time_to_expiration_days.total_seconds() / (365 * 24 * 3600), 0.0001)
-            
-            # Calculate profits using the calculate_public_profits function
-            future_iv = position['IV (%)'] / 100
-            risk_free_rate = 0.0  # Example risk-free rate
-            
-            profits = analytics.calculate_public_profits(
-                (index_price_range, position_side, strike_price, position_value, position_size, time_to_expiration_years, risk_free_rate, future_iv, position_type)
-            )
+
+
+            premium_value = position_size * position_value
+            if position_type == "put":
+                 breakeven = strike_price - premium_value 
+            else:
+                 breakeven = premium_value + strike_price
+
+
+            profits = [
+                calculate_profit(
+                    current_price=index_price,
+                    option_price=position_value,
+                    strike_price=strike_price,
+                    option_type=position_type,
+                    quantity=position_size,
+                    is_buy=(position_side.lower() == 'buy')
+                )
+                for index_price in index_price_range
+            ]
             
             # Append profits to the matrix
             profit_matrix.append(profits)
@@ -851,13 +856,7 @@ def plot_strategy_profit(strategy_data):
             z=profit_matrix,
             x=index_price_range,
             y=np.arange(len(strategy_data) + 1),  # Adjust for the new total profit row
-            colorscale=[
-                (0, 'red'),       # Loss
-                (0.25, 'orange'), # Small loss
-                (0.5, 'yellow'),  # Break-even
-                (0.75, 'lightgreen'), # Small profit
-                (1, 'green')      # Profit
-            ], 
+            colorscale='RdYlGn',  # Use a more advanced and sensitive default colorscale
             colorbar=dict(title='Profit'),
             hovertemplate=(
                 "Underlying Price: %{x:.0f}K<br>"  # Format x-axis value as K
@@ -878,11 +877,7 @@ def plot_strategy_profit(strategy_data):
         )
     
 
-    
-    
     return fig
-
-
 
 # Function to calculate profits and create a plot
 def calculate_and_plot_all_days_profits(group):
@@ -913,7 +908,7 @@ def calculate_and_plot_all_days_profits(group):
             risk_free_rate = 0.0  # Example risk-free rate
             
             profits = analytics.calculate_public_profits(
-                (np.arange(60000, 120000, 500), position['Side'], position['Strike Price'], position['Price (USD)'], 
+                (np.arange(50000, 120000, 1000), position['Side'], position['Strike Price'], position['Price (USD)'], 
                  position['Size'], time_to_expiration_years, risk_free_rate, future_iv, position['Option Type'].lower())
             )
             
@@ -928,7 +923,7 @@ def calculate_and_plot_all_days_profits(group):
 
     for day in days_to_expiration:
         fig_profit.add_trace(go.Scatter(
-            x=np.arange(60000, 120000, 500),
+            x=np.arange(50000, 120000, 1000),
             y=profit_over_days[day],
             mode='lines',
             hovertemplate=(
