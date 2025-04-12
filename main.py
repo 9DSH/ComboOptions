@@ -111,7 +111,8 @@ def app():
         
         # Initialize session state for inputs if they don't exist
         if 'selected_date' not in st.session_state:
-            st.session_state.selected_date = fetch_data.fetch_available_dates()[0]
+            default_date = (datetime.now() + timedelta(days=1)).date()
+            st.session_state.selected_date = default_date
         if 'option_symbol' not in st.session_state:
             st.session_state.option_symbol = None  # Initialize this as None or an empty value
         if 'quantity' not in st.session_state:
@@ -450,7 +451,8 @@ def app():
                             market_available_dates = market_screener_df['Expiration Date'].dropna().unique().tolist()
 
                             # Convert to datetime to sort
-                            market_available_dates = pd.to_datetime(market_available_dates, errors='coerce')
+                            market_available_dates = pd.to_datetime(market_available_dates, format='%d-%b-%y', errors='coerce')
+                            
                             # Filter out NaT values
                             market_available_dates = market_available_dates.dropna()
                             # Sort the dates
@@ -587,7 +589,7 @@ def app():
                             strategy_df = analytics.Identify_combo_strategies(strategy_groups)
                             strategy_df_copy = strategy_df.copy()
                             insights = analytics.analyze_block_trades(strategy_df_copy)
-                            st.title("📊 Options Block Trade Analyzer")
+                            
                             st.caption(f"Analyzed {len(strategy_df_copy)} trades from {insights['summary_stats']['time_range_start']} to {insights['summary_stats']['time_range_end']}")
 
                             # 1. Key Metrics
