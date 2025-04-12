@@ -330,22 +330,34 @@ class DeribitAPI:
         self.btc_usd_price = None
 
     def fetch_today_high_low(self):
-        # Binance API endpoint for 24hr ticker price change statistics
-        url = "https://api.binance.com/api/v3/ticker/24hr"
+        # Using get_book_summary_by_currency which reliably returns high/low for BTC
+        url = "https://www.deribit.com/api/v2/public/get_book_summary_by_currency"
         params = {
-            'symbol': 'BTCUSDT'
+            'currency': 'BTC',
+            'kind': 'future'  # For perpetual swaps and futures
         }
         
-        response = requests.get(url, params=params)
-        data = response.json()
-        
-        # Check if the response contains the necessary keys
-        if 'highPrice' not in data or 'lowPrice' not in data:
-            print("Error fetching data:", data.get('msg', 'Unknown error'))
+        try:
+            response = requests.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            
+            if not data.get('result'):
+                print("Error: No results in getting highest and lowest price response")
+                return None, None
+                
+            # Find BTC-PERPETUAL in results
+            for instrument in data['result']:
+                if instrument['instrument_name'] == 'BTC-PERPETUAL':
+                    highest_price = int(float(instrument['high']))
+                    lowest_price = int(float(instrument['low']))
+                    return highest_price, lowest_price
+            
             return None, None
-        
-        # Extract the highest and lowest prices for today
-        highest_price = int(float(data['highPrice']))
-        lowest_price = int(float(data['lowPrice']))
-        
-        return highest_price, lowest_price
+            
+        except requests.exceptions.RequestException as e:
+            print(f"API Request Failed: {e}")
+            return None, None
+        except (KeyError, ValueError) as e:
+            print(f"Data Parsing Error: {e}")
+            return None, None
