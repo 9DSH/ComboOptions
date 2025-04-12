@@ -5,6 +5,8 @@ import numpy as np
 from Analytics import Analytic_processing
 from Calculations import calculate_profit
 
+from concurrent.futures import ThreadPoolExecutor
+
 analytics = Analytic_processing()
 
 def plot_option_profit(results_df, 
@@ -573,6 +575,7 @@ def plot_price_vs_entry_date(df):
     # Ensure 'Entry Date' is in datetime format
     df['Entry Date'] = pd.to_datetime(df['Entry Date'])
 
+
     # Create traces for BUY and SELL
     buy_df = df[df['Side'] == 'BUY']
     sell_df = df[df['Side'] == 'SELL']
@@ -801,7 +804,13 @@ def plot_identified_whale_trades(df, min_marker_size, max_marker_size, min_opaci
     return fig
 
 def plot_strategy_profit(strategy_data):
-    index_price_range = np.arange(50000, 120000, 1000)  # Example range
+    
+     # Determine the minimum and maximum strike prices
+    min_strike_price = strategy_data['Strike Price'].min()
+    max_strike_price = strategy_data['Strike Price'].max()
+
+    # Generate index price range based on strike prices
+    index_price_range = np.arange(min_strike_price - 35000, max_strike_price + 35000, 1000)
     profit_matrix = []
     position_labels = []
 
@@ -859,10 +868,15 @@ def plot_strategy_profit(strategy_data):
             colorscale='RdYlGn',  # Use a more advanced and sensitive default colorscale
             colorbar=dict(title='Profit'),
             hovertemplate=(
-                "Underlying Price: %{x:.0f}K<br>"  # Format x-axis value as K
-                "Profit: %{z:,.0f}<br>"  # Format z-axis value with commas
+                "Expiration Profit<br>"
+                "Underlying Price: %{x}<br>"  # Use custom data for x-axis
+                "Profit: %{customdata}<br>"  # Use custom data for z-axis
                 "<extra></extra>"  # Suppress default hover info
             ),
+            customdata=[
+                [f"{int(val/1e6)}M" if abs(val) >= 1e6 else f"{int(val/1e3)}k" if abs(val) >= 1e3 else f"{int(val):,}" for val in row]
+                for row in profit_matrix
+            ],
             showscale=True,
             zsmooth=False,  # Disable smoothing to make grid lines visible
             xgap=0.5,  # Add gap between x values
@@ -882,6 +896,15 @@ def plot_strategy_profit(strategy_data):
 # Function to calculate profits and create a plot
 def calculate_and_plot_all_days_profits(group):
     # Calculate the minimum and maximum time to expiration in days for existing positions
+    group['IV (%)'] = pd.to_numeric(group['IV (%)'], errors='coerce').fillna(0)
+
+    # Determine the minimum and maximum strike prices
+    min_strike_price = group['Strike Price'].min()
+    max_strike_price = group['Strike Price'].max()
+
+    # Generate index price range based on strike prices
+    index_price_range = np.arange(min_strike_price - 35000, max_strike_price + 35000, 1000)
+
     expiration_dates = [
         (pd.to_datetime(position['Expiration Date'], utc=True) - datetime.now(timezone.utc)).days 
         for i, position in group.iterrows()
@@ -908,7 +931,7 @@ def calculate_and_plot_all_days_profits(group):
             risk_free_rate = 0.0  # Example risk-free rate
             
             profits = analytics.calculate_public_profits(
-                (np.arange(50000, 120000, 1000), position['Side'], position['Strike Price'], position['Price (USD)'], 
+                (index_price_range, position['Side'], position['Strike Price'], position['Price (USD)'], 
                  position['Size'], time_to_expiration_years, risk_free_rate, future_iv, position['Option Type'].lower())
             )
             
@@ -922,17 +945,39 @@ def calculate_and_plot_all_days_profits(group):
     fig_profit = go.Figure()
 
     for day in days_to_expiration:
+        # Calculate breakeven price for the current day
+        breakeven_price = "N/A"
+        for price, profit in zip(index_price_range, profit_over_days[day]):
+            if profit > 0:
+                breakeven_price = price
+                break
+
+        # Check if all values are positive or negative
+        if all(p > 0 for p in profit_over_days[day]) or all(p < 0 for p in profit_over_days[day]):
+            breakeven_price = "N/A"
+
         fig_profit.add_trace(go.Scatter(
-            x=np.arange(50000, 120000, 1000),
+            x=index_price_range,
             y=profit_over_days[day],
             mode='lines',
             hovertemplate=(
-                "Underlying Price: %{x:.0f}K<br>"  # Format x-axis value as K\
-                "Days to Expiration: %{text}<br>"  # Add number of days to expiration
-                "Profit: %{y:,.0f}<br>"  # Format y-axis value with commas
+                "%{text}<br>"  # Add number of days to expiration
+                "Underlying Price: %{customdata[0]}<br>"  # Use custom data for formatted x-axis value
+                "Breakeven Price: %{customdata[2]}<br>"  # Add breakeven price to hover
+                "Profit: %{customdata[1]}<br>"  # Use custom data for formatted y-axis value
                 "<extra></extra>"  # Suppress default hover info
             ),
-            text=[f"{day} days" for _ in range(len(profit_over_days[day]))]  # Add day information for hover
+            text=[f"Day {day}" for _ in range(len(profit_over_days[day]))],  # Add day information for hover
+            customdata=[
+                [
+                    f"{x/1000000:.1f}M" if abs(x) >= 1000000 else (f"{x/1000:.0f}k" if abs(x) >= 1000 else f"{x:,.0f}"),
+                    f"{y/1000000:.1f}M" if abs(y) >= 1000000 else (f"{y/1000:.0f}k" if abs(y) >= 1000 else f"{y:,.0f}"),
+                    f"{breakeven_price/1000000:.1f}M" if isinstance(breakeven_price, (int, float)) and abs(breakeven_price) >= 1000000 else (
+                        f"{breakeven_price/1000:.0f}k" if isinstance(breakeven_price, (int, float)) and abs(breakeven_price) >= 1000 else breakeven_price
+                    )
+                ]
+                for x, y in zip(index_price_range, profit_over_days[day])
+            ]  # Format values greater than 1000000 with 'M' and greater than 1000 with 'k', considering negative values
         ))
 
     # Update layout for the profit chart
@@ -943,3 +988,157 @@ def calculate_and_plot_all_days_profits(group):
     )
 
     return fig_profit
+
+
+def plot_public_profits(strategy_data):
+                                # Calculate profits using multithreading
+    with ThreadPoolExecutor() as executor:
+        future_all_days_profits = executor.submit(calculate_and_plot_all_days_profits, strategy_data)
+        future_strategy_profit = executor.submit(plot_strategy_profit, strategy_data)
+                                    
+                                    # Retrieve results
+    fig_profit = future_all_days_profits.result()
+    fig_strategy = future_strategy_profit.result()
+                                
+    return fig_profit, fig_strategy
+
+def plot_top_strikes_pie_chart(top_strikes):
+    """
+    Plots a pie chart of the top strike prices with hover info showing
+    total size and trade count.
+    """
+    # Ensure the DataFrame is not empty
+    if top_strikes.empty:
+        raise ValueError("The top_strikes DataFrame is empty. Cannot plot pie chart.")
+
+    # Create hover text to display total size and trade count
+    top_strikes['hover_text'] = (
+        "Strike Price: " + top_strikes.index.astype(str) + "<br>" +
+        "Total Size: " + top_strikes[('Total Size', 'sum')].astype(int).astype(str) + " BTC<br>" +
+        "Trade Count: " + top_strikes[('Total Size', 'count')].astype(int).astype(str) + " trades"
+    )
+
+    # Create a pie chart using Plotly
+    fig = go.Figure(data=[go.Pie(
+        labels=top_strikes.index.astype(str),
+        values=top_strikes[('Total Size', 'sum')],
+        hole=0.6,
+        hoverinfo='text',
+        textinfo='value+percent+label',
+        text=top_strikes['hover_text'],
+        textposition='outside'
+    )])
+
+    # Update the layout of the chart
+    
+    return fig
+
+
+def plot_hourly_activity_radar(hourly_activity):
+    """
+    Plots a radar chart of hourly activities.
+    
+    Parameters:
+        hourly_activity (pd.DataFrame): DataFrame containing 'Total Size' by hour.
+    """
+    # Ensure the DataFrame is not empty
+    if hourly_activity.empty:
+        raise ValueError("The hourly_activity DataFrame is empty. Cannot plot radar chart.")
+
+    # Extract hours and total sizes
+    hours = hourly_activity.index.astype(str)  # Convert hours to string for plotting
+    total_sizes = hourly_activity['Total Size']['sum'].tolist()
+
+    # Close the loop for the radar chart by repeating the first value
+    hours = list(hours) + [hours[0]]
+    total_sizes = total_sizes + [total_sizes[0]]
+
+    # Create radar chart
+    fig = go.Figure()
+
+    fig.add_trace(go.Scatterpolar(
+        r=total_sizes,
+        theta=hours,
+        fill='toself',
+        name='Hourly Activity',
+        line=dict(color='blue', width=2)  # Change color of the line to blue
+    ))
+
+    # Update the layout of the radar chart
+    fig.update_layout(
+        title='Hourly Activity by Total Size',
+        polar=dict(
+            radialaxis=dict(
+                visible=True,
+                range=[0, max(total_sizes) + 10],  # Adjust the range as necessary
+            ),
+            angularaxis=dict(
+                tickvals=hours[:-1],  # Exclude the repeated first value for ticks
+                ticktext=hours[:-1]   # Exclude the repeated first value for labels
+            )
+        ),
+        showlegend=True
+    )
+
+    return fig
+
+
+
+def plot_most_strategy_bar_chart(strategy_df_copy):
+    """
+    Plots a horizontal bar chart of the total size from the strategy DataFrame using Plotly's graph_objects.
+
+    Parameters:
+    - strategy_df_copy (pd.DataFrame): DataFrame containing the 'Total Size' data to plot.
+    """
+    if 'Total Size' in strategy_df_copy and 'sum' in strategy_df_copy['Total Size']:
+        # Create a horizontal bar chart
+        fig = go.Figure(
+            data=[
+                go.Bar(
+                    y=strategy_df_copy.index,  # Use the index as the y-axis
+                    x=strategy_df_copy['Total Size']['sum'],  # Use 'Total Size' as the x-axis
+                    orientation='h'  # Horizontal orientation
+                )
+            ]
+        )
+        fig.update_layout(
+            xaxis_title='Total Size',
+            yaxis_title='Top Strategies'
+        )
+    
+    return fig
+
+
+def plot_hourly_activity(hourly_activity):
+    """
+    Plots a bar chart of hourly activity using Plotly.
+
+    Parameters:
+        hourly_activity (pd.DataFrame): DataFrame containing 'hour' and 'activity' columns.
+    """
+    # Ensure the DataFrame is not empty
+    if hourly_activity.empty:
+        raise ValueError("The hourly_activity DataFrame is empty. Cannot plot.")
+
+    # Create a bar chart
+    fig = go.Figure()
+
+    fig.add_trace(go.Bar(
+        x=hourly_activity.index,  # Assuming the index contains the hours
+        y=hourly_activity['Total Size']['sum'],  # Replace 'activity' with the actual column name if different
+        marker=dict(color='skyblue'),  # Set the color of the bars to sky blue
+        hoverinfo='y',  # Show x and y values on hover
+      ))
+
+    # Update layout
+    fig.update_layout(
+        title='Hourly Activity',
+        xaxis_title='Hour',
+        yaxis_title='Activity (Volume)',
+        template='plotly_white',  # Use a clean white template
+        xaxis=dict(tickmode='linear'),  # Ensure all hours are shown
+        height=300 # Decrease the height of the chart
+    )
+
+    return fig

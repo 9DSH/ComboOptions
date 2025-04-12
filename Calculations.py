@@ -199,8 +199,12 @@ def calculate_totals_for_options(df):
     """
     total_options = df.shape[0]  # Total number of rows
     total_amount = df['Size'].sum() if 'Size' in df.columns else 0  # Total size from 'Size' column
-    total_entry_values = df['Entry Value'].sum() if 'Entry Value' in df.columns else 0  # Total entry values
-
+    
+    if 'Entry Value' in df.columns:
+        df['Entry Value'] = pd.to_numeric(df['Entry Value'], errors='coerce').fillna(0)
+        total_entry_values = df['Entry Value'].sum()
+    else:
+        total_entry_values = 0
     return (total_options, 
             round(total_amount, 2), 
             round(total_entry_values, 2))

@@ -8,6 +8,7 @@ from datetime import datetime, timezone, timedelta
 import time
 from Fetch_data import Fetching_data
 from Start_fetching_data import get_btcusd_price
+import json  # Add this import
 
 
 # Configure logging
@@ -163,7 +164,7 @@ class Analytic_processing:
         change_in_iv = 0.0
         risk_free_rate = 0.0
         
-        btc_price = get_btcusd_price()
+        btc_price, highest, lowest = get_btcusd_price()
         
         lower_bound = btc_price - 20000  # 20000 down from btc_price
         upper_bound = btc_price + 30000  # 30000 up from btc_price
@@ -318,6 +319,120 @@ class Analytic_processing:
         summary_df = pd.DataFrame(summary_stats)
         return summary_df
         
-        
-
+    def analyze_block_trades(self, df):
+            """
+            Analyze block trades DataFrame and return key insights for traders.
+            
+            Args:
+                df (pd.DataFrame): DataFrame containing block trade data with columns:
+                    - Strategy ID
+                    - Block Trade ID
+                    - Number of Legs
+                    - Total Size
+                    - Entry Time
+                    - Strategy Type
+            
+            Returns:
+                dict: Dictionary containing structured insights
+            """
+            
+            # Convert Entry Time to datetime if not already
+            if not pd.api.types.is_datetime64_any_dtype(df['Entry Time']):
+                df['Entry Time'] = pd.to_datetime(df['Entry Time'])
+            
+            # Extract expiry and strike information from Strategy ID
+            df['Expiry'] = df['Strategy ID'].str.extract(r'(\d{1,2}[A-Z]{3}\d{2,4})')
+            df['Strikes'] = df['Strategy ID'].str.extract(r'(\d{5,6})')
+            
+            # Initialize results dictionary
+            insights = {
+                'summary_stats': {},
+                'strategy_analysis': {},
+                'strike_analysis': {},
+                'time_analysis': {},
+                'recommendations': []
+            }
+            
+            # 1. Summary Statistics
+            insights['summary_stats'] = {
+                'total_trades': len(df),
+                'total_size_btc': df['Total Size'].sum(),
+                'time_range_start': df['Entry Time'].min(),
+                'time_range_end': df['Entry Time'].max(),
+                'avg_trade_size': df['Total Size'].mean(),
+                'median_trade_size': df['Total Size'].median()
+            }
+            
+            # 2. Strategy Analysis
+            if not df.empty:
+                strategy_stats = df.groupby('Strategy Type').agg({
+                    'Total Size': ['sum', 'count', 'mean'],
+                    'Block Trade ID': 'nunique'
+                }).sort_values(('Total Size', 'sum'), ascending=False)
                 
+                insights['strategy_analysis']['strategy_distribution'] = strategy_stats
+                
+                # Top strategies by size
+                top_strategies = strategy_stats.nlargest(3, ('Total Size', 'sum'))
+                insights['strategy_analysis']['top_strategies'] = top_strategies
+            
+            # 3. Strike and Expiry Analysis
+            if not df.empty:
+                # Most active strikes
+                strike_stats = df.groupby('Strikes').agg({
+                    'Total Size': ['sum', 'count'],
+                    'Strategy Type': lambda x: x.value_counts().to_dict()
+                }).sort_values(('Total Size', 'sum'), ascending=False)
+                
+                insights['strike_analysis']['top_strikes'] = strike_stats.head(5)
+                
+                # Expiry analysis
+                expiry_stats = df.groupby('Expiry').agg({
+                    'Total Size': ['sum', 'count'],
+                    'Strategy Type': lambda x: x.value_counts().to_dict()
+                }).sort_values(('Total Size', 'sum'), ascending=False)
+                
+                insights['strike_analysis']['expiry_activity'] = expiry_stats
+            
+            # 4. Time-based Analysis
+            if not df.empty:
+                df['Hour'] = df['Entry Time'].dt.hour
+                hour_stats = df.groupby('Hour').agg({
+                    'Total Size': ['sum', 'count'],
+                    'Strategy Type': lambda x: x.value_counts().to_dict()
+                }).sort_values(('Total Size', 'sum'), ascending=False)
+                
+                insights['time_analysis']['hourly_activity'] = hour_stats
+            
+            # 5. Recommendations
+            # Based on the heaviest traded strikes/strategies
+            if not strike_stats.empty:
+                heaviest_strike = strike_stats.index[0]
+                insights['recommendations'].append(
+                    f"Monitor {heaviest_strike} strikes closely as they represent the highest traded volume"
+                )
+            
+            if not strategy_stats.empty:
+                heaviest_strategy = strategy_stats.index[0]
+                insights['recommendations'].append(
+                    f"Pay attention to {heaviest_strategy} trades as they dominate activity"
+                )
+            
+            # Check for large block trades
+            large_trades = df[df['Total Size'] > df['Total Size'].quantile(0.9)]
+            if not large_trades.empty:
+                largest_trade = large_trades.nlargest(1, 'Total Size').iloc[0]
+                insights['recommendations'].append(
+                    f"Large block trade detected: {largest_trade['Total Size']} BTC "
+                    f"of {largest_trade['Strategy Type']} at {largest_trade['Strikes']} "
+                    f"on {largest_trade['Entry Time']}"
+                )
+            
+            # Check for concentrated expiry activity
+            if not expiry_stats.empty and len(expiry_stats) == 1:
+                insights['recommendations'].append(
+                    f"All activity concentrated on {expiry_stats.index[0]} expiry - "
+                    "expect increased volatility around this date"
+                )
+            
+            return insights

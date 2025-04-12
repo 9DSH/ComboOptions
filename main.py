@@ -13,10 +13,9 @@ import webbrowser
 from Fetch_data import Fetching_data
 from Analytics import Analytic_processing
 from Calculations import calculate_option_profit , calculate_totals_for_options, get_most_traded_instruments , calculate_sums_of_public_trades_profit
-from Charts import plot_strike_price_vs_size , plot_stacked_calls_puts, plot_option_profit , plot_radar_chart, plot_price_vs_entry_date, plot_most_traded_instruments , plot_underlying_price_vs_entry_value , plot_identified_whale_trades, plot_strategy_profit, calculate_and_plot_all_days_profits
+from Charts import plot_hourly_activity ,plot_most_strategy_bar_chart , plot_top_strikes_pie_chart , plot_strike_price_vs_size , plot_stacked_calls_puts, plot_option_profit , plot_radar_chart, plot_price_vs_entry_date, plot_most_traded_instruments , plot_underlying_price_vs_entry_value , plot_identified_whale_trades, plot_public_profits
 from Start_fetching_data import start_fetching_data_from_api,  get_btcusd_price
 import plotly.graph_objects as go 
-from concurrent.futures import ThreadPoolExecutor
 
 warnings.filterwarnings("ignore", message=".*missing ScriptRunContext.*")
 # Configure logging
@@ -61,19 +60,27 @@ def app():
     combo_breakeven_buy = None
     title_row = st.container()
     # Fetch and display the current price
-    btc_price = get_btcusd_price()
+    btc_price , highest, lowest = get_btcusd_price()
     with title_row:
         col1, col2, col3 = st.columns([1, 1, 1])  # Adjust ratio for centering
+        with col1:
+            show_24h_public_trades = st.checkbox("Show 24h Public Trades", value=False)
         with col2:
             
             st.header("Option Dashboard")
         with col3:
-            colmm1, colmm2 = st.columns(2)
-            with colmm1:
-                st.write("")
-            with colmm2: 
+            colmm1, colmm2 , colmm3, colmm4= st.columns([3,1.5,0.8,0.8])
+            with colmm2:
                 btc_display_price = f"{btc_price:.0f}" if btc_price is not None else "Loading..."
                 st.metric(label="BTC USD", value=btc_display_price, delta=None, delta_color="normal", help="Bitcoin price in USD")
+            with colmm3:
+                st.markdown(f"<div style='font-size: 16px; color: #90EE90;'>{highest}</div><div style='font-size: 12px; '>Highest</div>", unsafe_allow_html=True)
+                st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)  # Add space between rows
+
+            with colmm4:
+                st.markdown(f"<div style='font-size: 16px;color: #f54b4b;'>{lowest}</div><div style='font-size: 12px;'>Lowest</div>", unsafe_allow_html=True)
+
+                
 
 
 
@@ -168,8 +175,11 @@ def app():
                     # Get and display the details of the selected option
                     option_details, option_index_price = fetch_data.fetch_option_data(option_symbol)
                     all_options_with_details = fetch_data.get_all_options(filter=None, type='data')
-                    recent_public_trades_df = fetch_data.load_market_trades(option_symbol)
+                    recent_public_trades_df = fetch_data.load_market_trades(filter= option_symbol , show_24h_public_trades = show_24h_public_trades)
 
+
+                    if recent_public_trades_df is None or recent_public_trades_df.empty:
+                        st.warning("There are no recent trades for the selected option.")
 
                     if not option_details.empty:
                         # Extracting details safely
@@ -190,6 +200,8 @@ def app():
                         breakeven_call_sell = premium_sell+ strike_price
                         breakeven_put_buy = strike_price - premium_buy
                         breakeven_put_sell = strike_price - premium_sell
+                        
+
 
                         
                         if option_side == "BUY":
@@ -211,6 +223,7 @@ def app():
 
                         # Compute total days to expiration (at least 1 to avoid zero)
                         time_to_expiration_days = max((expiration_date - now_utc).days, 1)
+                        
 
 
 
@@ -355,98 +368,100 @@ def app():
     #-------------------------------------------------------
     if 'expiration_date' in locals() and not option_details.empty:
         Profit_tab = f'{option_symbol}'
-        main_tabs = st.tabs(["Market Watch",  Profit_tab, "Combinations"])
+        main_tabs = st.tabs(["Market Watch",  Profit_tab, "Hedge Fund"])
 
 #---------------------------------------------------------------
 #-----------------------Market Watch ---------------------------
 #-------------------------------------------------------------
 
-        with main_tabs[0]:
+        with main_tabs[0]: 
              # Initialize trades variable outside of any if conditions
-            market_screener_df  = fetch_data.load_market_trades()
+            market_screener_df = fetch_data.load_market_trades( filter=None , drop = False ,show_24h_public_trades = show_24h_public_trades)
+         
             # here we can have the function that simulates the public trades profit
 
-            filter_row = st.container()
-            with filter_row:
-                col_refresh, col_date, col_strike_range,col_expiration,col_vertical, col_public_details = st.columns([0.01, 0.2, 0.2, 0.2,0.01, 0.08])
-                #with col_refresh: 
-                    #apply_market_filter = st.button(label="Apply", key="apply_market_filter")
+            if not market_screener_df.empty:
+                market_screener_df.dropna(subset=['Entry Date', 'Underlying Price'], inplace=True)
+                filter_row = st.container()
+                with filter_row:
+                    col_refresh, col_date, col_strike_range, col_expiration, col_vertical, col_public_details = st.columns([0.01, 0.2, 0.2, 0.2, 0.01, 0.08])
+                    #with col_refresh: 
+                        #apply_market_filter = st.button(label="Apply", key="apply_market_filter")
 
-                with col_date:
-                    date_row1 = st.container()
-                    date_row2 = st.container()
+                    with col_date:
+                        date_row1 = st.container()
+                        date_row2 = st.container()
 
-                    with date_row1:
-                        cc1,cc2,cc3 = st.columns([0.04, 0.02, 0.02])
-                        with cc1:
-                            start_date = st.date_input("Start Entry Date", value=date(2025, 3, 1))
-                        with cc2:
-                            start_hour = st.number_input("Hour", min_value=0, max_value=23, value=0)
-                        with cc3:
-                            start_minute = st.number_input("Minute", min_value=0, max_value=59, value=0)
-                    
-                    with date_row2:
-                        ca1,ca2,ca3 = st.columns([0.04, 0.02, 0.02])
-                        with ca1 :
-                            current_utc_date =  datetime.now(timezone.utc).date()
-                            end_date = st.date_input("End Entry Date", value=current_utc_date)
+                        with date_row1:
+                            cc1, cc2, cc3 = st.columns([0.04, 0.02, 0.02])
+                            with cc1:
+                                start_date = st.date_input("Start Entry Date", value=date(2025, 3, 1))
+                            with cc2:
+                                start_hour = st.number_input("Hour", min_value=0, max_value=23, value=0)
+                            with cc3:
+                                start_minute = st.number_input("Minute", min_value=0, max_value=59, value=0)
 
-                            with ca2:
-                                end_hour = st.number_input("Hour", min_value=0, max_value=23, value=23)
-                            with ca3:
-                                end_minute = st.number_input("Minute", min_value=0, max_value=59, value=59)
+                        with date_row2:
+                            ca1, ca2, ca3 = st.columns([0.04, 0.02, 0.02])
+                            with ca1:
+                                current_utc_date = datetime.now(timezone.utc).date()
+                                end_date = st.date_input("End Entry Date", value=current_utc_date)
 
-                        # Combine date and time into a single datetime object
-                    start_datetime = datetime.combine(start_date, datetime.min.time().replace(hour=start_hour, minute=start_minute))
-                    end_datetime = datetime.combine(end_date, datetime.min.time().replace(hour=end_hour, minute=end_minute))
+                                with ca2:
+                                    end_hour = st.number_input("Hour", min_value=0, max_value=23, value=23)
+                                with ca3:
+                                    end_minute = st.number_input("Minute", min_value=0, max_value=59, value=59)
 
-                
+                            # Combine date and time into a single datetime object
+                        start_datetime = datetime.combine(start_date, datetime.min.time().replace(hour=start_hour, minute=start_minute))
+                        end_datetime = datetime.combine(end_date, datetime.min.time().replace(hour=end_hour, minute=end_minute))
+
                     #st.markdown("<div style='height: 150px; width: 1px; background-color: lightgray; margin: auto;'></div>", unsafe_allow_html=True)  # Vertical line
-                with col_strike_range:
-                    row_one = st.container()
-                    row_two = st.container()
-                    with row_one:   
-                        strike_col1, strike_col2 = st.columns(2)
-                        with strike_col1:
-                            min_strike = st.number_input("Minimum strike", min_value=0, max_value=400000, value=60000)
-                        with strike_col2:
-                            max_strike = st.number_input("Maximum strike", min_value=0, max_value=400000, value=120000)
-                    with row_two:
-                        strike_range = (min_strike, max_strike)  
-                        if 'Strike Price' in market_screener_df.columns and not market_screener_df.empty:
-                            # Filter the DataFrame for strikes within the selected range
-                            filtered_strikes_df = market_screener_df[
-                                (market_screener_df['Strike Price'] >= strike_range[0]) & 
-                                (market_screener_df['Strike Price'] <= strike_range[1])
-                            ]
-                            unique_strikes = filtered_strikes_df['Strike Price'].unique()
-                            sorted_strikes = sorted(unique_strikes, reverse=True)  # Sort in descending order
+                    with col_strike_range:
+                        row_one = st.container()
+                        row_two = st.container()
+                        with row_one:
+                            strike_col1, strike_col2 = st.columns(2)
+                            with strike_col1:
+                                min_strike = st.number_input("Minimum strike", min_value=0, max_value=400000, value=60000)
+                            with strike_col2:
+                                max_strike = st.number_input("Maximum strike", min_value=0, max_value=400000, value=120000)
+                        with row_two:
+                            strike_range = (min_strike, max_strike)
+                            if 'Strike Price' in market_screener_df.columns and not market_screener_df.empty:
+                                # Filter the DataFrame for strikes within the selected range
+                                filtered_strikes_df = market_screener_df[
+                                    (market_screener_df['Strike Price'] >= strike_range[0]) &
+                                    (market_screener_df['Strike Price'] <= strike_range[1])
+                                ]
+                                unique_strikes = filtered_strikes_df['Strike Price'].unique()
+                                sorted_strikes = sorted(unique_strikes, reverse=True)  # Sort in descending order
 
-                            # Create the multiselect for the filtered strike prices
-                            multi_strike_filter = st.multiselect("Select Strikes", options=sorted_strikes)
-                        else:
-                            # Handle case where no strikes are available
-                            multi_strike_filter = st.multiselect("Select Strikes", options=[], default=[], help="No available strikes to select.")
+                                # Create the multiselect for the filtered strike prices
+                                multi_strike_filter = st.multiselect("Select Strikes", options=sorted_strikes)
+                            else:
+                                # Handle case where no strikes are available
+                                multi_strike_filter = st.multiselect("Select Strikes", options=[], default=[], help="No available strikes to select.")
 
+                    with col_expiration:
+                        row_expiration = st.container()
+                        row_sidetype = st.container()
+                        with row_expiration:
+                            market_available_dates = market_screener_df['Expiration Date'].dropna().unique().tolist()
 
-                with col_expiration:
-                    row_expiration = st.container()
-                    row_sidetype = st.container()
-                    with row_expiration:
-                        market_available_dates = market_screener_df['Expiration Date'].dropna().unique().tolist()
+                            # Convert to datetime to sort
+                            market_available_dates = pd.to_datetime(market_available_dates, errors='coerce')
+                            # Filter out NaT values
+                            market_available_dates = market_available_dates.dropna()
+                            # Sort the dates
+                            sorted_market_available_dates = sorted(market_available_dates)
 
-                        # Convert to datetime to sort
-                        market_available_dates = pd.to_datetime(market_available_dates, errors='coerce')
-                        # Sort the dates
-                        sorted_market_available_dates = sorted(market_available_dates)
+                            # Optionally convert back to desired string format for display purposes
+                            sorted_market_available_dates = [date.strftime("%#d-%b-%y") for date in sorted_market_available_dates]
 
-                        # Optionally convert back to desired string format for display purposes
-                        sorted_market_available_dates = [date.strftime("%#d-%b-%y") for date in sorted_market_available_dates]
+                            selected_expiration_filter = st.multiselect("Expiration Date", sorted_market_available_dates, key="whatch_exp_filter")
 
-                        selected_expiration_filter = st.multiselect("Expiration Date", sorted_market_available_dates, key="whatch_exp_filter")
-                    
-                
-                    with row_sidetype:
+                        with row_sidetype:
                             side_col1, side_col2, side_col3, side_col4 = st.columns(4)
                             with side_col1:
                                 show_sides_buy = st.checkbox("BUY", value=True, key='show_buys')
@@ -455,60 +470,59 @@ def app():
                                 show_type_call = st.checkbox("Call", value=True, key='show_calss')
                                 show_type_put = st.checkbox("Put", value=True, key='show_puts')
 
-                start_strike, end_strike = strike_range  # Unpack the tuple to get start and end values
-                # Initial filtering by strike price and date range
-                filtered_df = market_screener_df[
+                    start_strike, end_strike = strike_range  # Unpack the tuple to get start and end values
+                    # Initial filtering by strike price and date range
+                    filtered_df = market_screener_df[
                         (market_screener_df['Strike Price'] >= start_strike) &
                         (market_screener_df['Strike Price'] <= end_strike) &
                         (market_screener_df['Entry Date'] >= start_datetime) &
                         (market_screener_df['Entry Date'] <= end_datetime)
                     ]
-                
-                if selected_expiration_filter:
-                     
-                     filtered_df = filtered_df[( filtered_df['Expiration Date'].isin(selected_expiration_filter))]
 
-                # Filter by selected strikes
-                if multi_strike_filter:
-                    filtered_df = filtered_df[filtered_df['Strike Price'].isin(multi_strike_filter)]
+                    if selected_expiration_filter:
+                        filtered_df = filtered_df[(filtered_df['Expiration Date'].isin(selected_expiration_filter))]
 
-                # Apply filtering for buy/sell sides
-                sides_to_filter = []
-                if show_sides_buy:
-                    sides_to_filter.append('BUY')  # append the actual value as per your column data
-                if show_sides_sell:
-                    sides_to_filter.append('SELL')  # append the actual value as per your column data
+                    # Filter by selected strikes
+                    if multi_strike_filter:
+                        filtered_df = filtered_df[filtered_df['Strike Price'].isin(multi_strike_filter)]
 
-                if sides_to_filter:
-                    filtered_df = filtered_df[filtered_df['Side'].isin(sides_to_filter)]
+                    # Apply filtering for buy/sell sides
+                    sides_to_filter = []
+                    if show_sides_buy:
+                        sides_to_filter.append('BUY')  # append the actual value as per your column data
+                    if show_sides_sell:
+                        sides_to_filter.append('SELL')  # append the actual value as per your column data
 
-                # Apply filtering for call/put types
-                types_to_filter = []
-                if show_type_call:
-                    types_to_filter.append('Call')  # append the actual value as per your column data
-                if show_type_put:
-                    types_to_filter.append('Put')  # append the actual value as per your column data
+                    if sides_to_filter:
+                        filtered_df = filtered_df[filtered_df['Side'].isin(sides_to_filter)]
 
-                if types_to_filter:
-                    filtered_df = filtered_df[filtered_df['Option Type'].isin(types_to_filter)]
+                    # Apply filtering for call/put types
+                    types_to_filter = []
+                    if show_type_call:
+                        types_to_filter.append('Call')  # append the actual value as per your column data
+                    if show_type_put:
+                        types_to_filter.append('Put')  # append the actual value as per your column data
 
-                with col_vertical:
-                    st.markdown("<div style='height: 150px; width: 1px; background-color: gray; margin: auto;'></div>", unsafe_allow_html=True)  # Vertical line
-                
-                with col_public_details:
-                    total_options, total_amount, total_entry_values= calculate_totals_for_options(filtered_df)
-                    row_count_title = st.container()
-                    row_count = st.container()
-                    row_size_title = st.container()
-                    row_size = st.container()
-                    with row_count_title:
-                        st.markdown(f"<p style='font-size: 12px; color: gray;'> Total Counts:</p>", unsafe_allow_html=True)
-                    with row_count:
-                        st.markdown(f"<p style='font-size: 17px; font-weight: bold;'> {total_options:,}</p>", unsafe_allow_html=True)
-                    with row_size_title:
-                        st.markdown(f"<p style='font-size: 12px; color: gray;'> Total Values:</p>", unsafe_allow_html=True)
-                    with row_size:
-                        st.markdown(f"<p style='font-size: 17px;font-weight: bold;'> {total_entry_values:,.0f}</p>", unsafe_allow_html=True)
+                    if types_to_filter:
+                        filtered_df = filtered_df[filtered_df['Option Type'].isin(types_to_filter)]
+
+                    with col_vertical:
+                        st.markdown("<div style='height: 150px; width: 1px; background-color: gray; margin: auto;'></div>", unsafe_allow_html=True)  # Vertical line
+
+                    with col_public_details:
+                        total_options, total_amount, total_entry_values = calculate_totals_for_options(filtered_df)
+                        row_count_title = st.container()
+                        row_count = st.container()
+                        row_size_title = st.container()
+                        row_size = st.container()
+                        with row_count_title:
+                            st.markdown(f"<p style='font-size: 12px; color: gray;'> Total Counts:</p>", unsafe_allow_html=True)
+                        with row_count:
+                            st.markdown(f"<p style='font-size: 17px; font-weight: bold;'> {total_options:,}</p>", unsafe_allow_html=True)
+                        with row_size_title:
+                            st.markdown(f"<p style='font-size: 12px; color: gray;'> Total Values:</p>", unsafe_allow_html=True)
+                        with row_size:
+                            st.markdown(f"<p style='font-size: 17px;font-weight: bold;'> {total_entry_values:,.0f}</p>", unsafe_allow_html=True)
             if not market_screener_df.empty:
                 # Ensure 'Entry Date' is in datetime format
                 market_screener_df['Entry Date'] = pd.to_datetime(market_screener_df['Entry Date'], errors='coerce')
@@ -571,7 +585,49 @@ def app():
                         with strategy_subtabs[0]:
                             # Summary statistics for each strategy
                             strategy_df = analytics.Identify_combo_strategies(strategy_groups)
-                            st.dataframe(strategy_df, use_container_width=True, hide_index=True)
+                            strategy_df_copy = strategy_df.copy()
+                            insights = analytics.analyze_block_trades(strategy_df_copy)
+                            st.title("📊 Options Block Trade Analyzer")
+                            st.caption(f"Analyzed {len(strategy_df_copy)} trades from {insights['summary_stats']['time_range_start']} to {insights['summary_stats']['time_range_end']}")
+
+                            # 1. Key Metrics
+                            padding , col1, col2, col3, padding2 = st.columns([1,1,1,1,1])
+                            col1.metric("Total Volume (BTC)", f"{insights['summary_stats']['total_size_btc']:,.1f}")
+                            col2.metric("Average Trade Size", f"{insights['summary_stats']['avg_trade_size']:,.1f} BTC")
+                            most_active_strategy = insights['strategy_analysis']['top_strategies'].index[0]
+                            col3.metric("Most Active Strategy", str(most_active_strategy))
+                            st.markdown("---")  # Horizontal line
+
+                            # 2. Strategy Distribution
+                            
+                            colu1, colu2 = st.columns(2)
+                            strategy_df_copy = insights['strategy_analysis']['strategy_distribution']
+                            with colu1 : 
+                                most_strag_fig = plot_most_strategy_bar_chart(strategy_df_copy)
+                                st.plotly_chart( most_strag_fig)
+                            with colu2 : 
+                                # 3. Top Strikes
+                                top_strikes = insights['strike_analysis']['top_strikes']
+                                fig_startegy_top_strikes = plot_top_strikes_pie_chart(top_strikes)
+                                st.plotly_chart(fig_startegy_top_strikes)
+
+                                
+
+                            # 4. Time Analysis
+                            hourly = insights['time_analysis']['hourly_activity']
+                            fig_hourly = plot_hourly_activity(hourly)
+                            st.plotly_chart(fig_hourly)
+                           
+
+                            # 5. Recommendations
+                            st.subheader("💡 Trader Insights")
+                            for rec in insights['recommendations']:
+                                st.info(rec)
+
+                            # Raw data expander
+                            with st.expander("📝 View Raw Analysis Data"):
+                                st.dataframe(strategy_df, use_container_width=True, hide_index=True)
+                                                        
                         
                         with strategy_subtabs[1]:
                             # Detailed view of each strategy
@@ -585,21 +641,14 @@ def app():
                             # Sort by total premium in descending order
                             sorted_strategies.sort(key=lambda x: x[3], reverse=True)
 
-                            def calculate_profits(strategy_data):
-                                # Calculate profits using multithreading
-                                with ThreadPoolExecutor() as executor:
-                                    future_all_days_profits = executor.submit(calculate_and_plot_all_days_profits, strategy_data)
-                                    future_strategy_profit = executor.submit(plot_strategy_profit, strategy_data)
-                                    
-                                    # Retrieve results
-                                    fig_profit = future_all_days_profits.result()
-                                    fig_strategy = future_strategy_profit.result()
-                                
-                                return fig_profit, fig_strategy
-
                             # Create a list of strategy labels for the selectbox
                             def format_value(value):
-                                return f"{value/1000:.0f}k" if value > 1000 else f"{value:,.0f}"
+                                if value > 1000000:
+                                    return f"{value/1000000:.0f}M"
+                                elif value > 1000:
+                                    return f"{value/1000:.0f}k"
+                                else:
+                                    return f"{value:,.0f}"
 
                             strategy_labels = []
                             for _, _, group, total_premium, strategy_type in sorted_strategies:
@@ -623,7 +672,6 @@ def app():
                                 
                                 # Calculate strategy metrics
                                 total_size = group['Size'].sum()
-                                
                                 # Display strategy metrics
                                 col1, col2, col3, col4 = st.columns([0.3, 0.2, 0.5, 0.2])
                                 with col1:
@@ -643,7 +691,7 @@ def app():
                                 strategy_data = group.copy()
                                 
                                 # Calculate profits using multithreading
-                                fig_profit, fig_strategy = calculate_profits(strategy_data)
+                                fig_profit, fig_strategy = plot_public_profits(strategy_data)
                                 
                                 with chart_col1:
                                     st.plotly_chart(fig_strategy, use_container_width=True, key=f"strategy_plot_{block_id}_{combo_id}")
@@ -664,38 +712,95 @@ def app():
                     st.plotly_chart(whales_fig)
                 
                 with tabs[4]:
-                    datatable = st.tabs(["Raw Data", "Processed Data"])
+                    datatable = st.tabs(["Processed Data" , "Raw Data"])
                     with datatable[0]:
-                        st.dataframe(filtered_df, use_container_width=True, hide_index=True)
-                    with datatable[1]:
+                        
                         processed_df = filtered_df[filtered_df[target_columns].isna().all(axis=1)]
                         processed_df = processed_df.iloc[:, :-4]
                         processed_df = processed_df.sort_values(by='Entry Date', ascending=False)  # Sort by entry date
                         st.dataframe(processed_df, use_container_width=True, hide_index=False)  # Show index
+
                         
-                        analyze_col1, analyze_col2 = st.columns([0.5,1])
+                        st.markdown("---")  # Horizontal line
+                        analyze_row = st.container()
+                        with analyze_row:
+                            analyze_col1, analyze_col2 = st.columns([0.4,1])
+                            with analyze_col1:
+                                selected_index = st.selectbox("Select an Index to Analyze", options=processed_df.index, key="analyze_profit_select")
+                            with analyze_col2:
+                                if selected_index is not None:
+                                        # Filter the raw data for the selected index
+                                        selected_option_data = filtered_df.loc[[selected_index]]
+
+                                        # Calculate profits using the existing function
+                                        fig_public_profit, fig_public_strategy = plot_public_profits(selected_option_data)
+
+                                        instrument = selected_option_data['Instrument'].values[0]
+                                        entry_value = selected_option_data['Entry Value'].values[0]
+                                        expiration_date = selected_option_data['Expiration Date'].values[0]
+                                        side = selected_option_data['Side'].values[0]
+                                        size = selected_option_data['Size'].values[0]
+                                        underlying_price = selected_option_data['Underlying Price'].values[0]
+                                        
+                                        entry_date = pd.to_datetime(selected_option_data['Entry Date'].values[0]).strftime('%d-%b-%y %H:%M')
+                                        st.markdown(
+                                            f"""
+                                            <div style='display: flex; justify-content: flex-start; gap: 10px; padding-top: 10px;'>
+                                                <div style='border:1px solid gray;padding:10px;border-radius:5px; text-align: center;'>
+                                                    <div style='font-size: smaller; color: gray;'>Instrument</div>
+                                                    {instrument}
+                                                </div>
+                                                <div style='border:1px solid gray;padding:10px;border-radius:5px; text-align: center;'>
+                                                    <div style='font-size: smaller; color: gray;'>Side</div>
+                                                    {side}
+                                                </div>
+                                                <div style='border:1px solid gray;padding:10px;border-radius:5px; text-align: center;'>
+                                                    <div style='font-size: smaller; color: gray;'>Size</div>
+                                                    {size}
+                                                </div>
+                                                <div style='border:1px solid gray;padding:10px;border-radius:5px; text-align: center;'>
+                                                    <div style='font-size: smaller; color: gray;'>Entry Value</div>
+                                                    {entry_value}
+                                                </div>
+                                                <div style='border:1px solid gray;padding:10px;border-radius:5px; text-align: center;'>
+                                                    <div style='font-size: smaller; color: gray;'>Entry Date</div>
+                                                    {entry_date}
+                                                </div>
+                                                <div style='border:1px solid gray;padding:10px;border-radius:5px; text-align: center;'>
+                                                    <div style='font-size: smaller; color: gray;'>Expiration Date</div>
+                                                    {expiration_date}
+                                                </div>
+                                                <div style='border:1px solid gray;padding:10px;border-radius:5px; text-align: center;'>
+                                                    <div style='font-size: smaller; color: gray;'>Underlying Price</div>
+                                                    {underlying_price}
+                                                </div>
+                                            </div>
+                                            """, 
+                                            unsafe_allow_html=True
+                                        )
+
+                        
+                        st.markdown("---")  # Horizontal line
+                        analyze_col1, analyze_col2 = st.columns(2)
                         # Create a selectbox for the user to choose an index from the processed_df
-                        with analyze_col1:
-                            selected_index = st.selectbox("Select an Index to Analyze", options=processed_df.index, key="analyze_profit_select")
-
-                        with analyze_col2:
-                            if selected_index is not None:
-                                # Filter the raw data for the selected index
-                                selected_option_data = filtered_df.loc[[selected_index]]
-
-                                # Calculate profits using the existing function
-                                fig_profit = calculate_and_plot_all_days_profits(selected_option_data)
-
+                       
                                 # Display the profit chart
-                                st.plotly_chart(fig_profit)
+                        with analyze_col1:
+                            st.plotly_chart( fig_public_strategy)
+                        
+                            
+                        with analyze_col2:
+                            st.plotly_chart(  fig_public_profit)
 
 
+                    with datatable[1]:
+                        st.dataframe(filtered_df, use_container_width=True, hide_index=True)
 
                         
           
    
             else:
-                st.warning("No trades available for the selected options.")
+                st.warning("No trades available for the selected options, wait while app is fetching data...")
 
 #------------------------------------------------------------------------------------
 #----------------------------------------Profit -------------------------------------
@@ -707,27 +812,22 @@ def app():
             #--------------------------------------------------------------------------------
             # Fetch all options for this strike (just to display)
             df_options_for_strike = fetch_data.get_all_strike_options(currency, strike_price, option_type)
-           
-            
-            st.subheader(f'Analytics for Option {strike_price:.0f} {option_type.upper()} ')
-            padding, chart_1, chart_2, chart_3 = st.columns([0.1, 2, 2, 2 ])
-            with padding: 
-                st.write("")
-            with chart_1:
-                fig_selected_symbol =  plot_underlying_price_vs_entry_value(recent_public_trades_df, btc_price, premium)
-                st.plotly_chart(fig_selected_symbol )
-            with chart_2:
-                #whales_in_option_fig = plot_whales(recent_public_trades_df, min_count=2, min_avg_size=5, max_marker_size=30, showlegend=False)
-                #st.plotly_chart(whales_in_option_fig )
-                price_vs_date =  plot_price_vs_entry_date(recent_public_trades_df)
-                st.plotly_chart(price_vs_date)
-                
-            with chart_3:
-                
-                open_by_expiration_radar = plot_radar_chart(df_options_for_strike)
-                st.plotly_chart(open_by_expiration_radar) 
-                
-                
+            if not recent_public_trades_df.empty:
+                st.subheader(f'Analytics for Option {strike_price:.0f} {option_type.upper()} ')
+                padding, chart_1, chart_2, chart_3 = st.columns([0.1, 2, 2, 2 ])
+                with padding: 
+                    st.write("")
+                with chart_1:
+                    fig_selected_symbol = plot_underlying_price_vs_entry_value(recent_public_trades_df, btc_price, premium)
+                    st.plotly_chart(fig_selected_symbol)
+                with chart_2:
+                    # whales_in_option_fig = plot_whales(recent_public_trades_df, min_count=2, min_avg_size=5, max_marker_size=30, showlegend=False)
+                    # st.plotly_chart(whales_in_option_fig)
+                    price_vs_date = plot_price_vs_entry_date(recent_public_trades_df)
+                    st.plotly_chart(price_vs_date)
+                with chart_3:
+                    open_by_expiration_radar = plot_radar_chart(df_options_for_strike)
+                    st.plotly_chart(open_by_expiration_radar)
                                                                                  
             
             

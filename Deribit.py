@@ -1,16 +1,24 @@
 import requests
 import logging
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import pandas as pd
 import asyncio
 import aiohttp
 import re
+import os
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 class DeribitAPI:
-    def __init__(self, client_id: str, client_secret: str, options_data_csv: str = "options_data.csv", options_screener_csv: str = "options_screener.csv"):
+    def __init__(self, 
+                 client_id: str, 
+                 client_secret: str, 
+                 options_data_csv: str = "options_data.csv", 
+                 options_screener_csv: str = "options_screener.csv",
+                 public_trades_24h_csv: str = "public_trades_24h.csv"):
+        
         self.client_id = client_id
         self.client_secret = client_secret
         self.access_token = None
@@ -18,10 +26,12 @@ class DeribitAPI:
         self.session = requests.Session()
         self.options_data_csv = options_data_csv  # Path for CSV storage for options data
         self.options_screener_csv = options_screener_csv  # Path for CSV storage for options screener
+        self.public_trades_24h_csv =  public_trades_24h_csv
         
         # Initialize empty DataFrames for options data and screener
         self.options_data = pd.DataFrame()
-        self.options_screener = pd.DataFrame()
+        self.options_screener = pd.DataFrame()        
+        self.public_trades_24h = pd.DataFrame()
 
     def authenticate(self):
         if self.access_token:
@@ -80,6 +90,9 @@ class DeribitAPI:
         elif data_type == "options_screener":  # Save options screener data
             df.to_csv(self.options_screener_csv, index=False)
             logging.info(f"Saved options screener data to {self.options_screener_csv}")
+        elif data_type == "public_trades_24h":  # Save options screener data
+            df.to_csv(self.public_trades_24h_csv, index=False)
+            logging.info(f"Saved public_trades_24h options screener data to {self.public_trades_24h_csv}")
 
     def refresh_options_data(self, currency='BTC'):
         """Refresh options data for the given currency."""
@@ -262,8 +275,25 @@ class DeribitAPI:
 
         public_trades_df = public_trades_df[new_order]
 
-        # Save the processed DataFrame to CSV
-        self.save_to_csv(public_trades_df, data_type="options_screener")
+         # Read existing data from CSV
+        try:
+            existing_df = pd.read_csv(self.options_screener_csv) if os.path.exists(self.options_screener_csv) else pd.DataFrame(columns=new_order)
+        except FileNotFoundError:
+            existing_df = pd.DataFrame(columns=new_order)
+
+            # Concatenate the new data with the existing data
+        combined_df = pd.concat([existing_df, public_trades_df])
+
+            # Drop duplicates based on specified columns
+        combined_df.drop_duplicates(subset=['Entry Date', 'Entry Value', 'Underlying Price', 'Instrument'], inplace=True)
+
+            # Save the processed DataFrame to CSV using the existing method
+        self.save_to_csv(combined_df, data_type="options_screener")
+        logging.info(f"Updated options screener data saved to {self.options_screener_csv}")
+
+        self.save_to_csv(public_trades_df, data_type="public_trades_24h")
+        logging.info("public_trades_24h Options data CSV saved.")
+
 
     def execute_data_fetch(self, currency='BTC', start_date=None, end_date=None):
         """Fetch and save options and public trades data."""
@@ -288,7 +318,7 @@ class DeribitAPI:
 
             if public_trades:
                 public_trades_df = pd.DataFrame(public_trades)
-                self.process_screener_data(public_trades_df)  # Process and save the public trades data
+                self.process_screener_data(public_trades_df )  # Process and save the public trades data
             else:
                 logging.warning("No public trades fetched.")
 
@@ -298,3 +328,24 @@ class DeribitAPI:
     def clear_price_cache(self):
         """Clear the cached BTC price to force a fresh fetch"""
         self.btc_usd_price = None
+
+    def fetch_today_high_low(self):
+        # Binance API endpoint for 24hr ticker price change statistics
+        url = "https://api.binance.com/api/v3/ticker/24hr"
+        params = {
+            'symbol': 'BTCUSDT'
+        }
+        
+        response = requests.get(url, params=params)
+        data = response.json()
+        
+        # Check if the response contains the necessary keys
+        if 'highPrice' not in data or 'lowPrice' not in data:
+            print("Error fetching data:", data.get('msg', 'Unknown error'))
+            return None, None
+        
+        # Extract the highest and lowest prices for today
+        highest_price = int(float(data['highPrice']))
+        lowest_price = int(float(data['lowPrice']))
+        
+        return highest_price, lowest_price

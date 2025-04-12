@@ -1,105 +1,86 @@
-from Fetch_data import Fetching_data
-from Analytics import Analytic_processing
-import numpy as np
+from datetime import datetime, timedelta
 import pandas as pd
-from datetime import datetime, timezone, timedelta
-import streamlit as st
-import plotly.graph_objects as go
+import asyncio
+import aiohttp
+import logging
+import requests
 
-analytics = Analytic_processing()
-fetch_data = Fetching_data()
+# Configure logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-filtered_df = fetch_data.load_market_trades()
+class DeribitAPI:
+    def __init__(self, client_id, client_secret):
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.base_url = "https://www.deribit.com/api/v2"
+        self.session = requests.Session()
 
-target_columns = ['BlockTrade IDs', 'BlockTrade Count', 'Combo ID', 'ComboTrade IDs']
-strategy_trades_df = filtered_df[~filtered_df[target_columns].isna().all(axis=1)]
+    async def fetch_public_trades_async(self, session, instrument_name, start_timestamp, end_timestamp):
+        """Fetch public trade data asynchronously for a given instrument."""
+        url = "https://www.deribit.com/api/v2/public/get_last_trades_by_instrument_and_time"
+        params = {
+            "instrument_name": instrument_name,
+            "start_timestamp": start_timestamp,
+            "end_timestamp": end_timestamp,
+            "count": 1000
+        }
 
-strategy_groups = strategy_trades_df.groupby(['BlockTrade IDs', 'Combo ID'])
-strategy_df = analytics.Identify_combo_strategies(strategy_groups)
+        for attempt in range(5):  # Retry up to 5 times
+            async with session.get(url, params=params) as response:
+                if response.status == 429:  # Too Many Requests
+                    wait_time = 16  # fixed wait time for rate limit reached
+                    await asyncio.sleep(wait_time)  # Wait before retrying
+                    continue  # Retry the request
+                response.raise_for_status()
+                data = await response.json()
+                return data
 
-sorted_strategies = []
+        logging.error(f"Failed to fetch trades for {instrument_name} after multiple attempts.")
+        return None  # Return None if all attempts fail
 
-for (block_id, combo_id), group in strategy_groups:
-    total_premium = group['Entry Value'].sum()
-    strategy_type = strategy_df[strategy_df['Strategy ID'] == combo_id]['Strategy Type'].iloc[0]
-    sorted_strategies.append((block_id, combo_id, group, total_premium, strategy_type))
+    def get_all_instruments(self, currency='BTC'):
+        """Fetch all available options for a given currency."""
+        url = f"{self.base_url}/public/get_instruments"
+        params = {'currency': currency, 'kind': 'option', 'expired': 'false'}
+        response = self.session.get(url, params=params)
+        response.raise_for_status()
+        instruments = response.json().get('result', [])
+        return [instrument['instrument_name'] for instrument in instruments]
 
-# Sort by total premium in descending order
-sorted_strategies.sort(key=lambda x: x[3], reverse=True)
+async def fetch_all_trades(deribit_api, instrument_names, start_timestamp, end_timestamp):
+    """Fetch all trades for a list of instrument names."""
+    async with aiohttp.ClientSession() as session:
+        tasks = [
+            deribit_api.fetch_public_trades_async(session, name, start_timestamp, end_timestamp)
+            for name in instrument_names
+        ]
+        results = await asyncio.gather(*tasks)
+        all_trades = []
+        for result in results:
+            if result and 'result' in result and 'trades' in result['result']:
+                all_trades.extend(result['result']['trades'])
+        df = pd.DataFrame(all_trades)
+        if not df.empty:
+            # Convert the 'timestamp' column from milliseconds to datetime
+            df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        return df
 
-# Function to calculate profits and create a plot
-def calculate_and_plot_all_days_profits(group):
-    # Calculate the minimum and maximum time to expiration in days for existing positions
-    expiration_dates = [
-        (pd.to_datetime(position['Expiration Date'], utc=True) - datetime.now(timezone.utc)).days 
-        for i, position in group.iterrows()
-    ]
-    min_time_to_expiration_days = min(expiration_dates)
-    max_time_to_expiration_days = max(expiration_dates)
-    if max_time_to_expiration_days <= 1:
-        min_time_to_expiration_days = 0
-        max_time_to_expiration_days = 1
-    
-    # Calculate profits for each day until expiration
-    days_to_expiration = np.arange(min_time_to_expiration_days, max_time_to_expiration_days + 1)
-    profit_over_days = {day: [] for day in days_to_expiration}
+# Example usage
+CLIENT_ID = 'i_kH-t6n'
+CLIENT_SECRET = 'sHrn7n_7RE4vVEzhMkm3n4S8giSl5gK9L9qLcXFtDTk'
+deribit_api = DeribitAPI(CLIENT_ID, CLIENT_SECRET)
 
-    for day in days_to_expiration:
-        daily_profits = []
-        for i, position in group.iterrows():
-            # Calculate profits for the current day
-            expiration_date = pd.to_datetime(position['Expiration Date'], utc=True)
-            now_utc = datetime.now(timezone.utc)
-            time_to_expiration_days = expiration_date - now_utc - timedelta(days=int(day))  # Convert to int
-            
-            time_to_expiration_years = max(time_to_expiration_days.total_seconds() / (365 * 24 * 3600), 0.0001)
-            
-            future_iv = position['IV (%)'] / 100
-            risk_free_rate = 0.0  # Example risk-free rate
-            
-            profits = analytics.calculate_public_profits(
-                (np.arange(60000, 120000, 500), position['Side'], position['Strike Price'], position['Price (USD)'], 
-                 position['Size'], time_to_expiration_years, risk_free_rate, future_iv, position['Option Type'].lower())
-            )
-            
-            daily_profits.append(profits)
-        
-        # Sum profits for the current day
-        total_daily_profit = np.sum(daily_profits, axis=0)
-        profit_over_days[day] = total_daily_profit
+# Fetch all instruments
+instrument_names = deribit_api.get_all_instruments()
 
-    # Create a Plotly line chart for profits over all days
-    fig_profit = go.Figure()
+# Determine the earliest available date
+earliest_available_date = datetime.utcnow().date() - timedelta(days=365)  # Adjust as needed
+start_datetime = datetime.combine(earliest_available_date, datetime.min.time())
+end_datetime = datetime.combine(datetime.utcnow().date(), datetime.min.time()).replace(hour=23, minute=59)
 
-    for day in days_to_expiration:
-        fig_profit.add_trace(go.Scatter(
-            x=np.arange(60000, 120000, 500),
-            y=profit_over_days[day],
-            mode='lines+markers',
-            name=f'Profit for {day} Days to Expiration'
-        ))
+start_timestamp = int(start_datetime.timestamp() * 1000)  # Convert to milliseconds
+end_timestamp = int(end_datetime.timestamp() * 1000)  # Convert to milliseconds
 
-    # Update layout for the profit chart
-    fig_profit.update_layout(
-        title='Profit for Each Day to Expiration',
-        xaxis_title='Underlying Price',
-        yaxis_title='Profit',
-        showlegend=True
-    )
-
-    return fig_profit
-
-# Streamlit app
-st.title("Strategy Profits Visualization")
-
-for block_id, combo_id, group, total_premium, strategy_type in sorted_strategies:
-    strategy_label = f"${total_premium:,.0f}  ---  {strategy_type}"
-    
-    with st.expander(f"Block ID: {block_id}, Combo ID: {combo_id} - {strategy_label}"):
-        st.write(group)
-        
-        # Call the function to calculate profits and create the plot
-        fig_profit = calculate_and_plot_all_days_profits(group)
-
-        # Display the profit chart in Streamlit
-        st.plotly_chart(fig_profit)
+# Fetch all trades for all instruments
+df_trades = asyncio.run(fetch_all_trades(deribit_api, instrument_names, start_timestamp, end_timestamp))
+print(df_trades)

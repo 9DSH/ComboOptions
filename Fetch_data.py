@@ -17,17 +17,17 @@ class Fetching_data:
                  options_data_csv: str = "options_data.csv", 
                  options_screener_csv: str = "options_screener.csv",
                  analytic_data_csv: str = "analytic_data.csv",
-                 public_profits_csv: str = "public_trades_profits.csv"):
+                 public_trades_24h_csv: str = "public_trades_24h.csv"):
         
         self.options_data_csv = options_data_csv  # Path for CSV storage for options data
         self.options_screener_csv = options_screener_csv  # Path for CSV storage for options screener
         self.analytic_data_csv = analytic_data_csv
-        self.public_profits_csv = public_profits_csv
+        self.public_trades_24h_csv =  public_trades_24h_csv
         # Initialize empty DataFrames for options data and screener
         self.analytic_data = pd.DataFrame()
         self.options_data = pd.DataFrame()
         self.options_screener = pd.DataFrame()
-        self.public_profits = pd.DataFrame()
+        self.public_trades_24h = pd.DataFrame()
 
 
     def get_available_currencies(self):
@@ -66,6 +66,7 @@ class Fetching_data:
                 self.options_screener = pd.read_csv(self.options_screener_csv)
                 logging.info("Loaded options screener data from CSV.")
             else:
+                print(f"The file {self.options_screener_csv} is either missing or empty.")
                 self.options_screener = pd.DataFrame()
                 logging.warning("Options screener CSV does not exist.")
 
@@ -77,14 +78,13 @@ class Fetching_data:
                 self.analytic_data = pd.DataFrame()
                 logging.warning("Analytic data CSV does not exist.")
 
-        elif data_type == "public_profits":  # Load options screener data
-            if os.path.exists(self.public_profits_csv):
-                self.public_profits = pd.read_csv(self.public_profits_csv)
-                logging.info("Loaded public profit data from CSV.")
+        elif data_type == "public_trades_24h":  # Load options data
+            if os.path.exists(self.public_trades_24h_csv):
+                self.public_trades_24h = pd.read_csv(self.public_trades_24h_csv)
+                logging.info("Loaded public_trades_24h options data from CSV.")
             else:
-                self.public_profits = pd.DataFrame()
-                logging.warning("Public profit data CSV does not exist.")
-
+                self.public_trades_24h = pd.DataFrame()
+                logging.warning("public_trades_24h Options data CSV does not exist.")
 
     def get_options_for_date(self, currency='BTC', expiration_date=None):
         """Get available options for a specific expiration date."""
@@ -193,7 +193,7 @@ class Fetching_data:
             return pd.DataFrame()
 
         # Fetch current market price
-        current_price = get_btcusd_price()
+        current_price, highest, lowest = get_btcusd_price()
 
         # Load all options from the CSV
         if self.options_data.empty:
@@ -243,7 +243,7 @@ class Fetching_data:
         logging.info(f"No detailed ITM options found for expiration date: {expiration_date}")
         return pd.DataFrame()
     
-    def load_market_trades(self, filter=None , drop = True):
+    def load_market_trades(self, filter=None , drop = True , show_24h_public_trades= None):
         """Load options screener data and return it after filtering.
 
         Parameters:
@@ -253,10 +253,15 @@ class Fetching_data:
             pd.DataFrame: The filtered or unfiltered options screener DataFrame.
         """
         # Load the complete options screener data from the CSV
-        self.load_from_csv(data_type="options_screener")
+        if show_24h_public_trades == False or show_24h_public_trades == None:
+            self.load_from_csv(data_type="options_screener")
+            options_screener_copy = self.options_screener.copy()
+        if show_24h_public_trades == True:
+            print("welwelwel")
+            self.load_from_csv(data_type="public_trades_24h")
+            options_screener_copy = self.public_trades_24h.copy()
 
-        # Create a copy of the DataFrame to avoid SettingWithCopyWarning
-        options_screener_copy = self.options_screener.copy()
+       
 
         # Check if 'entry date' exists before sorting
         if not options_screener_copy.empty:
