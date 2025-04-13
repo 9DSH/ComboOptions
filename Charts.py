@@ -945,16 +945,18 @@ def calculate_and_plot_all_days_profits(group):
     fig_profit = go.Figure()
 
     for day in days_to_expiration:
-        # Calculate breakeven price for the current day
-        breakeven_price = "N/A"
-        for price, profit in zip(index_price_range, profit_over_days[day]):
-            if profit > 0:
-                breakeven_price = price
-                break
+        # Calculate breakeven prices for the current day
+        breakeven_prices = []
+        for i in range(1, len(index_price_range)):
+            if (profit_over_days[day][i-1] < 0 and profit_over_days[day][i] > 0) or \
+               (profit_over_days[day][i-1] > 0 and profit_over_days[day][i] < 0):
+                breakeven_prices.append(index_price_range[i])
 
-        # Check if all values are positive or negative
-        if all(p > 0 for p in profit_over_days[day]) or all(p < 0 for p in profit_over_days[day]):
-            breakeven_price = "N/A"
+        # Format breakeven prices for hover
+        breakeven_prices_str = ', '.join(
+            f"{price/1000000:.1f}M" if abs(price) >= 1000000 else (f"{price/1000:.0f}k" if abs(price) >= 1000 else f"{price:,.0f}")
+            for price in breakeven_prices
+        ) if breakeven_prices else "N/A"
 
         fig_profit.add_trace(go.Scatter(
             x=index_price_range,
@@ -963,7 +965,7 @@ def calculate_and_plot_all_days_profits(group):
             hovertemplate=(
                 "%{text}<br>"  # Add number of days to expiration
                 "Underlying Price: %{customdata[0]}<br>"  # Use custom data for formatted x-axis value
-                "Breakeven Price: %{customdata[2]}<br>"  # Add breakeven price to hover
+                "Breakeven Prices: %{customdata[2]}<br>"  # Add breakeven prices to hover
                 "Profit: %{customdata[1]}<br>"  # Use custom data for formatted y-axis value
                 "<extra></extra>"  # Suppress default hover info
             ),
@@ -972,9 +974,7 @@ def calculate_and_plot_all_days_profits(group):
                 [
                     f"{x/1000000:.1f}M" if abs(x) >= 1000000 else (f"{x/1000:.0f}k" if abs(x) >= 1000 else f"{x:,.0f}"),
                     f"{y/1000000:.1f}M" if abs(y) >= 1000000 else (f"{y/1000:.0f}k" if abs(y) >= 1000 else f"{y:,.0f}"),
-                    f"{breakeven_price/1000000:.1f}M" if isinstance(breakeven_price, (int, float)) and abs(breakeven_price) >= 1000000 else (
-                        f"{breakeven_price/1000:.0f}k" if isinstance(breakeven_price, (int, float)) and abs(breakeven_price) >= 1000 else breakeven_price
-                    )
+                    breakeven_prices_str
                 ]
                 for x, y in zip(index_price_range, profit_over_days[day])
             ]  # Format values greater than 1000000 with 'M' and greater than 1000 with 'k', considering negative values
@@ -1015,7 +1015,7 @@ def plot_top_strikes_pie_chart(top_strikes):
     top_strikes['hover_text'] = (
         "Strike Price: " + top_strikes.index.astype(str) + "<br>" +
         "Total Size: " + top_strikes[('Total Size', 'sum')].astype(int).astype(str) + " BTC<br>" +
-        "Trade Count: " + top_strikes[('Total Size', 'count')].astype(int).astype(str) + " trades"
+        "Count: " + top_strikes[('Total Size', 'count')].astype(int).astype(str) + " Strategies"
     )
 
     # Create a pie chart using Plotly

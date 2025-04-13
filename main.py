@@ -69,7 +69,7 @@ def app():
             
             st.header("Option Dashboard")
         with col3:
-            colmm1, colmm2 , colmm3, colmm4= st.columns([3,1.5,0.8,0.8])
+            colmm1, colmm2 , colmm3, colmm4= st.columns([2.5,1.5,0.8,0.8])
             with colmm2:
                 btc_display_price = f"{btc_price:.0f}" if btc_price is not None else "Loading..."
                 st.metric(label="BTC USD", value=btc_display_price, delta=None, delta_color="normal", help="Bitcoin price in USD")
