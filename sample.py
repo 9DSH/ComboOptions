@@ -1,13 +1,18 @@
 from Fetch_data import Fetching_data
-from datetime import datetime, timedelta
+import pandas as pd
 
 fetch_data = Fetching_data()
 
-# Set the default date to tomorrow's date as a datetime.date object
-default_date = (datetime.now() + timedelta(days=1)).date()
+fetch_data.load_from_csv(data_type="options_screener")
+df = fetch_data.options_screener
 
-# Fetch available dates and set the selected date to the default if available
-available_dates = fetch_data.fetch_available_dates()
-selected_date = default_date if default_date in available_dates else available_dates[0]
+# Drop rows with duplicate Trade IDs, keeping only the first occurrence
+df = df.drop_duplicates(subset=['Trade ID'])
 
-print(default_date)  # return format is datetime.date(2025, 4, 13)
+combined_df = pd.concat([df , df ])
+print(combined_df .shape)
+        # Drop duplicates based on specified columns
+public_trades_total = combined_df.drop_duplicates(subset=['Trade ID'])
+
+print(public_trades_total .shape)
+

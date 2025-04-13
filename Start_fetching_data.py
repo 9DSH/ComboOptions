@@ -40,18 +40,3 @@ def get_btcusd_price():
     price = deribit_api.fetch_btc_to_usd()
     highest_price , lowest_price = deribit_api.fetch_today_high_low()
     return price , highest_price, lowest_price
-
-def get_btc_high_low():
-    try:
-        # Fetch historical price data from the API
-        price_data = deribit_api.fetch_historical_prices(currency='BTC')
-        
-        # Extract the highest and lowest prices from the data
-        highest_price = max(price_data, key=lambda x: x['price'])['price']
-        lowest_price = min(price_data, key=lambda x: x['price'])['price']
-        
-        return highest_price, lowest_price
-
-    except Exception as e:
-        print(f"An error occurred while fetching high/low prices: {e}")
-        return None, None

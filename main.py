@@ -13,7 +13,7 @@ import webbrowser
 from Fetch_data import Fetching_data
 from Analytics import Analytic_processing
 from Calculations import calculate_option_profit , calculate_totals_for_options, get_most_traded_instruments , calculate_sums_of_public_trades_profit
-from Charts import plot_hourly_activity ,plot_most_strategy_bar_chart , plot_top_strikes_pie_chart , plot_strike_price_vs_size , plot_stacked_calls_puts, plot_option_profit , plot_radar_chart, plot_price_vs_entry_date, plot_most_traded_instruments , plot_underlying_price_vs_entry_value , plot_identified_whale_trades, plot_public_profits
+from Charts import plot_hourly_activity ,plot_most_strategy_bar_chart , plot_top_strikes_pie_chart , plot_strike_price_vs_entry_value , plot_stacked_calls_puts, plot_option_profit , plot_radar_chart, plot_price_vs_entry_date, plot_most_traded_instruments , plot_underlying_price_vs_entry_value , plot_identified_whale_trades, plot_public_profits
 from Start_fetching_data import start_fetching_data_from_api,  get_btcusd_price
 import plotly.graph_objects as go 
 
@@ -464,7 +464,7 @@ def app():
                             selected_expiration_filter = st.multiselect("Expiration Date", sorted_market_available_dates, key="whatch_exp_filter")
 
                         with row_sidetype:
-                            side_col1, side_col2, side_col3, side_col4 = st.columns(4)
+                            side_col1, side_col3= st.columns(2)
                             with side_col1:
                                 show_sides_buy = st.checkbox("BUY", value=True, key='show_buys')
                                 show_sides_sell = st.checkbox("SELL", value=True, key='show_sells')
@@ -540,7 +540,7 @@ def app():
                     detail_column_2, detail_column_3 = st.columns(2)                       
 
                     with detail_column_2:
-                        fig_2 = plot_strike_price_vs_size(filtered_df)
+                        fig_2 = plot_strike_price_vs_entry_value(filtered_df)
                         st.plotly_chart(fig_2)
                     with detail_column_3:
                         fig_3 = plot_stacked_calls_puts(filtered_df)
@@ -718,7 +718,7 @@ def app():
                     with datatable[0]:
                         
                         processed_df = filtered_df[filtered_df[target_columns].isna().all(axis=1)]
-                        processed_df = processed_df.iloc[:, :-4]
+                        processed_df = processed_df.iloc[:, :-5]
                         processed_df = processed_df.sort_values(by='Entry Date', ascending=False)  # Sort by entry date
                         st.dataframe(processed_df, use_container_width=True, hide_index=False)  # Show index
 

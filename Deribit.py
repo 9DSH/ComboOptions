@@ -84,13 +84,18 @@ class DeribitAPI:
 
     def save_to_csv(self, df, data_type):
         """Save options data or options screener data to a CSV file based on data_type."""
+        if data_type == "options_screener":
+            # Remove duplicates based on 'Trade ID' column
+            if 'Trade ID' in df.columns:
+                df = df.drop_duplicates(subset=['Trade ID'], keep='first')
+        
         if data_type == "options_data":  # Save options data
             df.to_csv(self.options_data_csv, index=False)
             logging.info(f"Saved options data to {self.options_data_csv}")
         elif data_type == "options_screener":  # Save options screener data
             df.to_csv(self.options_screener_csv, index=False)
             logging.info(f"Saved options screener data to {self.options_screener_csv}")
-        elif data_type == "public_trades_24h":  # Save options screener data
+        elif data_type == "public_trades_24h":  # Save public trades data
             df.to_csv(self.public_trades_24h_csv, index=False)
             logging.info(f"Saved public_trades_24h options screener data to {self.public_trades_24h_csv}")
 
@@ -223,30 +228,71 @@ class DeribitAPI:
                     logging.error(f"Unexpected response format for instrument: {instrument_name}. Result: {result}")
 
             return combined_trades
+        
+    def validate_screener_data(self, df, required_columns):
+        """Check if each row in the DataFrame has values in the required columns, otherwise skip the row."""
+        # Check for missing columns in the DataFrame
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            logging.error(f"Missing columns in the DataFrame: {missing_columns}")
+            return False
 
+        # Check for missing or malformed data in each required column
+        for column in required_columns:
+            if df[column].isnull().any():
+                logging.error(f"Missing data in column: {column}")
+                return False
+
+        # Additional checks for specific columns can be added here
+        # For example, ensure numeric columns have valid numbers
+        numeric_columns = ['iv', 'price', 'index_price', 'amount']
+        for column in numeric_columns:
+            if column in df.columns and not pd.api.types.is_numeric_dtype(df[column]):
+                logging.error(f"Non-numeric data found in numeric column: {column}")
+                return False
+
+        return True
+    
     def process_screener_data(self, public_trades_df):
-        """Process the public trades DataFrame by performing calculations, renaming columns, and saving it."""
+        """Process the public trades DataFrame by performing calculations, renaming columns, and saving it.
+        raw_columns = [
+                            'timestamp', 'iv', 'price', 'direction', 'index_price', 'instrument_name', 
+                            'trade_seq', 'mark_price', 'amount', 'tick_direction', 'contracts', 'trade_id', 
+                            'block_trade_id', 'block_rfq_id', 'combo_id', 'block_trade_leg_count', 'liquidation', 'combo_trade_id'
+                    ]
+        """
+
         logging.info("Processing public trades data...")
+
+        required_columns = ['timestamp', 'iv', 'price', 'direction', 'index_price', 'instrument_name', 
+                            'trade_seq', 'mark_price', 'amount', 'tick_direction', 'contracts', 'trade_id']
+
+        if not self.validate_screener_data(public_trades_df, required_columns):
+            return
 
         # Convert the 'timestamp' from trades to a readable date
         public_trades_df['timestamp'] = pd.to_datetime(public_trades_df['timestamp'], unit='ms')  # Convert ms to datetime
         
-        public_trades_df['direction'] = public_trades_df['direction'].str.upper()
-
         # Format the timestamp: remove seconds and milliseconds
         public_trades_df['timestamp'] = public_trades_df['timestamp'].dt.strftime('%Y-%m-%d %H:%M')
+        
+        public_trades_df['direction'] = public_trades_df['direction'].str.upper()
 
         # Ensure the extraction function is available and retrieve details
         for index, row in public_trades_df.iterrows():
-            expiration_date, strike_price, option_type = self.extract_option_details(row['instrument_name'])
-            public_trades_df.at[index, 'Expiration Date'] = expiration_date
-            public_trades_df.at[index, 'Strike Price'] = strike_price
-            public_trades_df.at[index, 'Option Type'] = option_type
+            try:
+                expiration_date, strike_price, option_type = self.extract_option_details(row['instrument_name'])
+                public_trades_df.at[index, 'Expiration Date'] = expiration_date
+                public_trades_df.at[index, 'Strike Price'] = strike_price
+                public_trades_df.at[index, 'Option Type'] = option_type
+            except Exception as e:
+                logging.error(f"Error extracting details for row {index}: {e}")
+            # Optionally, you can choose to skip this row or fill with default values
 
         # Calculate additional columns
         public_trades_df['Price (USD)'] = (public_trades_df['price'] * public_trades_df['index_price']).round(2)
         public_trades_df['Entry Value'] = (public_trades_df['amount'] * public_trades_df['Price (USD)']).round(2)
-
+       
         # Rename the columns as per the requirements
         columns = {
             'timestamp': 'Entry Date',
@@ -261,6 +307,8 @@ class DeribitAPI:
             'combo_id' : 'Combo ID', 
             'block_trade_leg_count' : 'BlockTrade Count', 
             'combo_trade_id': 'ComboTrade IDs',
+            'liquidation' : 'Liquidation',
+            'trade_id': 'Trade ID'
         }
         
         public_trades_df.rename(columns=columns, inplace=True)
@@ -270,25 +318,25 @@ class DeribitAPI:
             'Side', 'Instrument', 'Price (BTC)', 'Price (USD)', 'Mark Price (BTC)',
             'IV (%)', 'Size', 'Entry Value', 'Underlying Price',
             'Expiration Date', 'Strike Price', 'Option Type', 'Entry Date','BlockTrade IDs',
-            'BlockTrade Count', 'Combo ID', 'ComboTrade IDs'
+            'BlockTrade Count', 'Combo ID', 'ComboTrade IDs' , 'Trade ID'
         ]
 
         public_trades_df = public_trades_df[new_order]
 
-         # Read existing data from CSV
+        # Read existing data from CSV
         try:
             existing_df = pd.read_csv(self.options_screener_csv) if os.path.exists(self.options_screener_csv) else pd.DataFrame(columns=new_order)
         except FileNotFoundError:
             existing_df = pd.DataFrame(columns=new_order)
 
-            # Concatenate the new data with the existing data
+        # Concatenate the new data with the existing data
         combined_df = pd.concat([existing_df, public_trades_df])
-
-            # Drop duplicates based on specified columns
-        combined_df.drop_duplicates(subset=['Entry Date', 'Entry Value', 'Underlying Price', 'Instrument'], inplace=True)
-
-            # Save the processed DataFrame to CSV using the existing method
-        self.save_to_csv(combined_df, data_type="options_screener")
+        # Identify and remove all rows with duplicate Trade IDs (keep none)
+        mask = combined_df.duplicated(subset=['Trade ID', 'Price (BTC)' , 'Underlying Price'], keep=False)
+        public_trades_total = combined_df[~mask]
+        
+        # Save the processed DataFrame to CSV using the existing method
+        self.save_to_csv(public_trades_total, data_type="options_screener")
         logging.info(f"Updated options screener data saved to {self.options_screener_csv}")
 
         self.save_to_csv(public_trades_df, data_type="public_trades_24h")

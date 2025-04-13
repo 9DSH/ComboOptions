@@ -4,7 +4,7 @@ from datetime import datetime, date, timezone
 import pandas as pd
 import numpy as np
 import os
-import re
+import time
 from Start_fetching_data import get_btcusd_price
 
 
@@ -53,38 +53,44 @@ class Fetching_data:
     def load_from_csv(self, data_type):
         """Load options data or options screener data from CSV files."""
 
-        if data_type == "options_data":  # Load options data
-            if os.path.exists(self.options_data_csv):
-                self.options_data = pd.read_csv(self.options_data_csv)
-                logging.info("Loaded options data from CSV.")
-            else:
-                self.options_data = pd.DataFrame()
-                logging.warning("Options data CSV does not exist.")
+        def load_csv(file_path, data_attribute):
+            """Helper function to load CSV with error handling."""
+            try:
+                if os.path.exists(file_path):
+                    df = pd.read_csv(file_path, on_bad_lines='skip')
+                    # Drop duplicates based on 'Trade ID' if the column exists
+                    if 'Trade ID' in df.columns:
+                        df = df.drop_duplicates(subset=['Trade ID'], keep='first')
+                        logging.info(f"Removed duplicates from {data_attribute}.")
+                    setattr(self, data_attribute, df)
+                    logging.info(f"Loaded {data_attribute} from CSV.")
+                else:
+                    setattr(self, data_attribute, pd.DataFrame())
+                    logging.warning(f"{data_attribute} CSV does not exist.")
+            except pd.errors.EmptyDataError:
+                logging.error(f"The file {file_path} is empty.")
+                setattr(self, data_attribute, pd.DataFrame())
+                time.sleep(10)
+            except pd.errors.ParserError as e:
+                logging.error(f"Error parsing {file_path}: {e}")
+                setattr(self, data_attribute, pd.DataFrame())
+                time.sleep(10)
+            except Exception as e:
+                logging.error(f"Unexpected error loading {file_path}: {e}")
+                setattr(self, data_attribute, pd.DataFrame())
+                time.sleep(10)
 
-        elif data_type == "options_screener":  # Load options screener data
-            if os.path.exists(self.options_screener_csv):
-                self.options_screener = pd.read_csv(self.options_screener_csv)
-                logging.info("Loaded options screener data from CSV.")
-            else:
-                print(f"The file {self.options_screener_csv} is either missing or empty.")
-                self.options_screener = pd.DataFrame()
-                logging.warning("Options screener CSV does not exist.")
+        if data_type == "options_data":
+            load_csv(self.options_data_csv, 'options_data')
 
-        elif data_type == "analytics_data":  # Load options screener data
-            if os.path.exists(self.analytic_data_csv):
-                self.analytic_data = pd.read_csv(self.analytic_data_csv)
-                logging.info("Loaded analytic data from CSV.")
-            else:
-                self.analytic_data = pd.DataFrame()
-                logging.warning("Analytic data CSV does not exist.")
+        elif data_type == "options_screener":
+            load_csv(self.options_screener_csv, 'options_screener')
 
-        elif data_type == "public_trades_24h":  # Load options data
-            if os.path.exists(self.public_trades_24h_csv):
-                self.public_trades_24h = pd.read_csv(self.public_trades_24h_csv)
-                logging.info("Loaded public_trades_24h options data from CSV.")
-            else:
-                self.public_trades_24h = pd.DataFrame()
-                logging.warning("public_trades_24h Options data CSV does not exist.")
+        elif data_type == "analytics_data":
+            load_csv(self.analytic_data_csv, 'analytic_data')
+
+        elif data_type == "public_trades_24h":
+            load_csv(self.public_trades_24h_csv, 'public_trades_24h')
 
     def get_options_for_date(self, currency='BTC', expiration_date=None):
         """Get available options for a specific expiration date."""
@@ -257,7 +263,6 @@ class Fetching_data:
             self.load_from_csv(data_type="options_screener")
             options_screener_copy = self.options_screener.copy()
         if show_24h_public_trades == True:
-            print("welwelwel")
             self.load_from_csv(data_type="public_trades_24h")
             options_screener_copy = self.public_trades_24h.copy()
 

@@ -294,7 +294,7 @@ def plot_stacked_calls_puts(df):
 
 
 
-def plot_strike_price_vs_size(filtered_df):
+def plot_strike_price_vs_entry_value(filtered_df):
     fig = go.Figure()
 
     # Create hover text in a vectorized manner
