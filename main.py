@@ -613,14 +613,11 @@ def app():
                                 fig_startegy_top_strikes = plot_top_strikes_pie_chart(top_strikes)
                                 st.plotly_chart(fig_startegy_top_strikes)
 
-                                
-
                             # 4. Time Analysis
                             hourly = insights['time_analysis']['hourly_activity']
                             fig_hourly = plot_hourly_activity(hourly)
                             st.plotly_chart(fig_hourly)
                            
-
                             # 5. Recommendations
                             st.subheader("💡 Trader Insights")
                             for rec in insights['recommendations']:
@@ -710,7 +707,7 @@ def app():
                     whale_cal1,whale_cal2, whale_cal3 = st.columns([0.5,1,1])
                     with whale_cal1:
                         entry_filter = st.number_input("Set Entry Filter Value", min_value=0, value=10000, step=100)
-                    whales_fig = plot_identified_whale_trades(filtered_df, min_marker_size=8, max_marker_size=35, min_opacity=0.2, max_opacity=0.9, showlegend=True, entry_filter = entry_filter )
+                    whales_fig = plot_identified_whale_trades(filtered_df, min_size=8, max_size=35, min_opacity=0.2, max_opacity=0.9, entry_value_threshold = entry_filter )
                     st.plotly_chart(whales_fig)
                 
                 with tabs[4]:
@@ -726,7 +723,7 @@ def app():
                         st.markdown("---")  # Horizontal line
                         analyze_row = st.container()
                         with analyze_row:
-                            analyze_col1, analyze_col2 = st.columns([0.4,1])
+                            analyze_col1, analyze_col2 = st.columns([0.2,1])
                             with analyze_col1:
                                 selected_index = st.selectbox("Select an Index to Analyze", options=processed_df.index, key="analyze_profit_select")
                             with analyze_col2:
