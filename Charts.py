@@ -365,12 +365,12 @@ def plot_strike_price_vs_entry_value(filtered_df):
 
 def plot_radar_chart(df_options_for_strike):
     # Check if required columns exist
-    if 'expiration_date' not in df_options_for_strike.columns or 'open_interest' not in df_options_for_strike.columns:
+    if 'Expiration Date' not in df_options_for_strike.columns or 'open_interest' not in df_options_for_strike.columns:
         print("DataFrame must contain 'expiration_date' and 'open_interest' columns.")
         return
 
     # Convert 'expiration_date' to datetime
-    exp_dates = pd.to_datetime(df_options_for_strike['expiration_date'])
+    exp_dates = pd.to_datetime(df_options_for_strike['Expiration Date'])
 
     # Prepare labels:
     # 'categories' for plotting (in original format)
@@ -394,7 +394,8 @@ def plot_radar_chart(df_options_for_strike):
         theta=categories,
         fill='toself',
         name='Open Interest',
-        line=dict(color='red', width=2)  # Change color of the line to red
+        line=dict(color='red', width=2),  # Change color of the line to red
+        hovertemplate='Open Interest: %{r}<br>Expiration Date: %{theta}<extra></extra>'  # Add hover labels
     ))
 
     # Update the layout of the radar chart
@@ -483,13 +484,21 @@ def plot_underlying_price_vs_entry_value(df, custom_price=None, custom_entry_val
             return date_obj.strftime('%Y-%m-%d %H:%M:%S')
         return 'Invalid Date'
 
+    # Helper function to format large numbers
+    def format_large_number(value):
+        if abs(value) >= 1e6:
+            return f"{value/1e6:.1f}M"
+        elif abs(value) >= 1e3:
+            return f"{value/1e3:.1f}k"
+        else:
+            return f"{value:.1f}"
+
     # Create a scatter plot of Entry Value against Underlying Price
     fig = go.Figure()
 
     # Separate data for BUY and SELL with corresponding colors
     df_sell = df[df['Side'] == 'SELL']
     df_buy = df[df['Side'] == 'BUY']
-
     # Avoid SettingWithCopyWarning by assigning to a new DataFrame
     df_sell = df_sell.assign(Formatted_Entry_Date=df_sell['Entry Date'].apply(format_entry_date))
     df_buy = df_buy.assign(Formatted_Entry_Date=df_buy['Entry Date'].apply(format_entry_date))
@@ -509,12 +518,15 @@ def plot_underlying_price_vs_entry_value(df, custom_price=None, custom_entry_val
         name='SELL',
         hovertemplate=(  
             '<b>Underlying Price:</b> %{y:.1f}<br>'  
-            '<b>Premium:</b> %{x:.1f}<br>'  
-            '<b>Entry Date:</b> %{customdata[1]}<br>'  
-            '<b>Size:</b> %{customdata[2]}<br>'  
+            '<b>Entry Value:</b> %{customdata[0]}<br>' 
+            '<b>Size:</b> %{customdata[2]}<br>'   
+            '<b>Entry Date:</b> %{customdata[1]}<br>' 
             '<extra></extra>'  
         ),
-        customdata=df_sell[['Instrument', 'Formatted_Entry_Date', 'Size']].values
+        customdata=np.array([
+            [format_large_number(x), date, int(size)]
+            for x, date, size in zip(df_sell['Entry Value'], df_sell['Formatted_Entry_Date'], df_sell['Size'])
+        ])
     ))
 
     # Add BUY data points (white)
@@ -533,12 +545,15 @@ def plot_underlying_price_vs_entry_value(df, custom_price=None, custom_entry_val
         name='BUY',
         hovertemplate=(  
             '<b>Underlying Price:</b> %{y:.1f}<br>'  
-            '<b>Premium:</b> %{x:.1f}<br>'  
-            '<b>Entry Date:</b> %{customdata[1]}<br>'  
+            '<b>Entry Value:</b> %{customdata[0]}<br>'
             '<b>Size:</b> %{customdata[2]}<br>'  
+            '<b>Entry Date:</b> %{customdata[1]}<br>'  
             '<extra></extra>'  
         ),
-        customdata=df_buy[['Instrument', 'Formatted_Entry_Date', 'Size']].values
+        customdata=np.array([
+            [format_large_number(x), date, int(size)]
+            for x, date, size in zip(df_buy['Entry Value'], df_buy['Formatted_Entry_Date'], df_buy['Size'])
+        ])
     ))
 
     # Custom point if provided
@@ -555,15 +570,15 @@ def plot_underlying_price_vs_entry_value(df, custom_price=None, custom_entry_val
                             width=1         # Width of the border
                     )),
             name='Your Option',
-            hovertemplate='<b>Your Entry Price:</b> ' + '{:.1f}'.format(custom_price)  + '<br>' +
-                          '<b>Your Premium:</b> ' + '{:.1f}'.format(custom_entry_value) + '<br>' +
+            hovertemplate='<b>Your Entry Price:</b> ' + format_large_number(custom_price)  + '<br>' +
+                          '<b>Your Premium:</b> ' + format_large_number(custom_entry_value) + '<br>' +
                           '<extra></extra>'
         ))
 
     # Update layout
     fig.update_layout(
-        title='Underlying Price vs Premium',
-        xaxis_title='Premium',    
+        title='Underlying Price vs Entry Value',
+        xaxis_title='Entry Value',    
         yaxis_title='Underlying Price',       
         template='plotly_dark',
         hoverlabel=dict(bgcolor='black', font_color='white')
@@ -592,10 +607,10 @@ def plot_price_vs_entry_date(df):
         marker=dict(size=8),
         hovertext=(
             'Underlying Price: ' + buy_df['Underlying Price'].map('{:.1f}'.format).astype(str) + '<br>' +
-            'Entry Date: ' + buy_df['Entry Date'].dt.strftime('%Y-%m-%d %H:%M:%S') + '<br>' +  # Include time
             'Price (USD): ' + buy_df['Price (USD)'].map('{:.1f}'.format) + '<br>' +  # Updated here
             'Size: ' + buy_df['Size'].astype(str) + '<br>' +
-            'Side: ' + buy_df['Side']
+            'Side: ' + buy_df['Side'] + '<br>'  +
+            'Entry Date: ' + buy_df['Entry Date'].dt.strftime('%Y-%m-%d %H:%M:%S') + '<br>'  # Include time
         ),
         hoverinfo='text',
         hoverlabel=dict(bgcolor='black', font=dict(color='white')),  # Set hover background to black
@@ -612,10 +627,10 @@ def plot_price_vs_entry_date(df):
         marker=dict(size=8),
         hovertext=(
             'Underlying Price: ' + sell_df['Underlying Price'].map('{:.1f}'.format).astype(str) + '<br>' +
-            'Entry Date: ' + sell_df['Entry Date'].dt.strftime('%Y-%m-%d %H:%M:%S') + '<br>' +  # Include time
             'Price (USD): ' + sell_df['Price (USD)'].map('{:.1f}'.format) + '<br>' +  # Updated here
             'Size: ' + sell_df['Size'].astype(str) + '<br>' +
-            'Side: ' + sell_df['Side']
+            'Side: ' + sell_df['Side'] + '<br>' +
+            'Entry Date: ' + sell_df['Entry Date'].dt.strftime('%Y-%m-%d %H:%M:%S') + '<br>'   # Include time
         ),
         hoverinfo='text',
         hoverlabel=dict(bgcolor='black', font=dict(color='white')),  # Set hover background to black
@@ -737,9 +752,9 @@ def plot_identified_whale_trades(df,  min_size=5, max_size=50, min_opacity=0.3, 
     return fig
 
 
-def plot_strategy_profit(strategy_data):
+def plot_expiration_profit(strategy_data, chart_type, trade_option_details):
     
-     # Determine the minimum and maximum strike prices
+    # Determine the minimum and maximum strike prices
     min_strike_price = strategy_data['Strike Price'].min()
     max_strike_price = strategy_data['Strike Price'].max()
 
@@ -749,88 +764,104 @@ def plot_strategy_profit(strategy_data):
     position_labels = []
 
     for i, position in strategy_data.iterrows():
-            # Extract necessary data for profit calculation
-            position_side = position['Side']
-            strike_price = position['Strike Price']
-            position_value = position['Price (USD)']
-            position_size = position['Size']
-            position_type = position['Option Type'].lower()
+        # Extract necessary data for profit calculation
 
-            position_label = f"{int(strike_price)} - {position_type.upper()} - {position_side.upper()}"
-            position_labels.append(position_label)  # Add to the list of labels
-
-
-            premium_value = position_size * position_value
-            if position_type == "put":
-                 breakeven = strike_price - premium_value 
+        if chart_type == "Trade":
+            trade_direction = trade_option_details[0]
+            trade_qty = trade_option_details[1]
+            if trade_direction == "Buy":
+                position_value = position['Ask Price (USD)']
             else:
-                 breakeven = premium_value + strike_price
+                position_value = position['Bid Price (USD)']
+            position_size = trade_qty
+            position_side = trade_direction
 
+        if chart_type == "Public":
+            position_size = position['Size']
+            position_side = position['Side']
+            position_value = position['Price (USD)']
 
-            profits = [
-                calculate_profit(
-                    current_price=index_price,
-                    option_price=position_value,
-                    strike_price=strike_price,
-                    option_type=position_type,
-                    quantity=position_size,
-                    is_buy=(position_side.lower() == 'buy')
-                )
-                for index_price in index_price_range
-            ]
-            
-            # Append profits to the matrix
-            profit_matrix.append(profits)
+        strike_price = position['Strike Price']
+        position_type = position['Option Type'].lower()
+
+        position_label = f"{int(strike_price)} - {position_type.upper()} - {position_side.upper()}"
+        position_labels.append(position_label)  # Add to the list of labels
+
+        premium_value = position_size * position_value
+        if position_type == "put":
+            breakeven = strike_price - premium_value
+        else:
+            breakeven = premium_value + strike_price
+
+        profits = [
+            calculate_profit(
+                current_price=index_price,
+                option_price=position_value,
+                strike_price=strike_price,
+                option_type=position_type,
+                quantity=position_size,
+                is_buy=(position_side.lower() == 'buy')
+            )
+            for index_price in index_price_range
+        ]
         
-        # Convert profit matrix to a numpy array for plotting
+        # Append profits to the matrix
+        profit_matrix.append(profits)
+    
+    # Convert profit matrix to a numpy array for plotting
     profit_matrix = np.array(profit_matrix)
-        
-        # Calculate the sum of profits for each underlying price
+    
+    # Calculate the sum of profits for each underlying price
     total_profit_row = np.sum(profit_matrix, axis=0)
-        
-        # Append the total profit row to the profit matrix
+    
+    # Append the total profit row to the profit matrix
     profit_matrix = np.vstack([profit_matrix, total_profit_row])
-        
-        # Create a Plotly figure
+    
+    # Determine if all profit values are negative
+    all_negative = np.all(total_profit_row < 0)
+    
+    # Choose colorscale based on profit values
+    colorscale = 'Reds' if all_negative else 'RdYlGn'
+    
+    # Create a Plotly figure
     fig = go.Figure()
 
-        # Add heatmap
+    # Add heatmap
     fig.add_trace(go.Heatmap(
-            z=profit_matrix,
-            x=index_price_range,
-            y=np.arange(len(strategy_data) + 1),  # Adjust for the new total profit row
-            colorscale='RdYlGn',  # Use a more advanced and sensitive default colorscale
-            colorbar=dict(title='Profit'),
-            hovertemplate=(
-                "Expiration Profit<br>"
-                "Underlying Price: %{x}<br>"  # Use custom data for x-axis
-                "Profit: %{customdata}<br>"  # Use custom data for z-axis
-                "<extra></extra>"  # Suppress default hover info
-            ),
-            customdata=[
-                [f"{int(val/1e6)}M" if abs(val) >= 1e6 else f"{int(val/1e3)}k" if abs(val) >= 1e3 else f"{int(val):,}" for val in row]
-                for row in profit_matrix
-            ],
-            showscale=True,
-            zsmooth=False,  # Disable smoothing to make grid lines visible
-            xgap=0.5,  # Add gap between x values
-            ygap=5   # Add gap between y values
-        ))
+        z=profit_matrix,
+        x=index_price_range,
+        y=np.arange(len(strategy_data) + 1),  # Adjust for the new total profit row
+        colorscale=colorscale,  # Use conditional colorscale
+        colorbar=dict(title='Profit'),
+        hovertemplate=(
+            "Expiration Profit<br>"
+            "Underlying Price: %{x}<br>"  # Use custom data for x-axis
+            "Profit: %{customdata}<br>"  # Use custom data for z-axis
+            "<extra></extra>"  # Suppress default hover info
+        ),
+        customdata=[
+            [f"{int(val/1e6)}M" if abs(val) >= 1e6 else f"{int(val/1e3)}k" if abs(val) >= 1e3 else f"{int(val):,}" for val in row]
+            for row in profit_matrix
+        ],
+        showscale=True,
+        zsmooth=False,  # Disable smoothing to make grid lines visible
+        xgap=0.5,  # Add gap between x values
+        ygap=5   # Add gap between y values
+    ))
 
-        # Update layout
+    # Update layout
     fig.update_layout(
-            xaxis_title='Underlying Price',
-            yaxis=dict(tickvals=np.arange(len(strategy_data) + 1), ticktext=[*position_labels,  'Total Profit']),
-            showlegend=False
-        )
-    
+        xaxis_title='Underlying Price',
+        yaxis=dict(tickvals=np.arange(len(strategy_data) + 1), ticktext=[*position_labels, 'Total Profit']),
+        showlegend=False
+    )
 
     return fig
 
 # Function to calculate profits and create a plot
-def calculate_and_plot_all_days_profits(group):
+def plot_all_days_profits(group , chart_type , trade_option_details):
     # Calculate the minimum and maximum time to expiration in days for existing positions
-    group['IV (%)'] = pd.to_numeric(group['IV (%)'], errors='coerce').fillna(0)
+
 
     # Determine the minimum and maximum strike prices
     min_strike_price = group['Strike Price'].min()
@@ -860,13 +891,33 @@ def calculate_and_plot_all_days_profits(group):
             time_to_expiration_days = expiration_date - now_utc - timedelta(days=int(day))  # Convert to int
             
             time_to_expiration_years = max(time_to_expiration_days.total_seconds() / (365 * 24 * 3600), 0.0001)
+
+            if chart_type == "Trade" : 
+                trade_direction = trade_option_details[0]
+                trade_qty = trade_option_details[1]
+                if trade_direction == "Buy" : 
+                    IV_str = 'Ask IV' 
+                    position_price = position['Ask Price (USD)'] 
+                else:
+                    IV_str ='Bid IV'
+                    position_price = position['Bid Price (USD)'] 
+                position_size = trade_qty
             
-            future_iv = position['IV (%)'] / 100
+            if chart_type == "Public" : 
+                IV_str = 'IV (%)'
+                position_size = position['Size']
+                trade_direction = position['Side']
+                position_price = position['Price (USD)']
+                
+            group = group.copy()        
+            group[IV_str] = pd.to_numeric(group[IV_str], errors='coerce').fillna(0)   
+
+            future_iv = position[IV_str] / 100
             risk_free_rate = 0.0  # Example risk-free rate
-            
+
             profits = analytics.calculate_public_profits(
-                (index_price_range, position['Side'], position['Strike Price'], position['Price (USD)'], 
-                 position['Size'], time_to_expiration_years, risk_free_rate, future_iv, position['Option Type'].lower())
+                (index_price_range, trade_direction, position['Strike Price'], position_price, 
+                 position_size , time_to_expiration_years, risk_free_rate, future_iv, position['Option Type'].lower())
             )
             
             daily_profits.append(profits)
@@ -924,11 +975,11 @@ def calculate_and_plot_all_days_profits(group):
     return fig_profit
 
 
-def plot_public_profits(strategy_data):
+def plot_public_profits(strategy_data , chart_type , trade_option_details):
                                 # Calculate profits using multithreading
     with ThreadPoolExecutor() as executor:
-        future_all_days_profits = executor.submit(calculate_and_plot_all_days_profits, strategy_data)
-        future_strategy_profit = executor.submit(plot_strategy_profit, strategy_data)
+        future_all_days_profits = executor.submit(plot_all_days_profits, strategy_data , chart_type , trade_option_details)
+        future_strategy_profit = executor.submit(plot_expiration_profit, strategy_data, chart_type , trade_option_details)
                                     
                                     # Retrieve results
     fig_profit = future_all_days_profits.result()

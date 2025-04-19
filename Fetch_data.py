@@ -44,7 +44,7 @@ class Fetching_data:
                 return []
 
         # Extract unique expiration dates
-        available_dates = self.options_data['expiration_date'].unique()
+        available_dates = self.options_data['Expiration Date'].unique()
         
         # Convert to date objects and sort
         return sorted(pd.to_datetime(available_dates).date.tolist())
@@ -99,8 +99,8 @@ class Fetching_data:
             self.load_from_csv(data_type="options_data")
 
         if expiration_date and not self.options_data.empty:
-            options_df = self.options_data[self.options_data['expiration_date'] == str(expiration_date)]
-            return options_df['symbol'].tolist() if not options_df.empty else []
+            options_df = self.options_data[self.options_data['Expiration Date'] == str(expiration_date)]
+            return options_df['Instrument'].tolist() if not options_df.empty else []
 
         return []
 
@@ -112,12 +112,12 @@ class Fetching_data:
         if option_symbol is not None and not self.options_data.empty:
             if isinstance(option_symbol, list):
                 # If a list of symbols is provided
-                detailed_data = self.options_data[self.options_data['symbol'].isin(option_symbol)]
-                return detailed_data, detailed_data['symbol'].unique() if not detailed_data.empty else (None, None)
+                detailed_data = self.options_data[self.options_data['Instrument'].isin(option_symbol)]
+                return detailed_data, detailed_data['Instrument'].unique() if not detailed_data.empty else (None, None)
             elif isinstance(option_symbol, str):
                 # If a single symbol is provided
-                detailed_data = self.options_data[self.options_data['symbol'] == option_symbol]
-                return detailed_data, detailed_data['symbol'].values[0] if not detailed_data.empty else (None, None)
+                detailed_data = self.options_data[self.options_data['Instrument'] == option_symbol]
+                return detailed_data, detailed_data['Instrument'].values[0] if not detailed_data.empty else (None, None)
 
         # If option_symbol is not provided, return the DataFrame
         return self.options_data, None
@@ -175,13 +175,13 @@ class Fetching_data:
 
         # Filter options based on the specified strike price
         if option_strike is not None:
-            filtered_options = self.options_data[self.options_data['strike_price'] == option_strike]
+            filtered_options = self.options_data[self.options_data['Strike Price'] == option_strike]
         else:
             filtered_options = self.options_data  # If no option_strike provided, return all options
 
         # Further filter by option type if provided
         if option_type:
-            filtered_options = filtered_options[filtered_options['option_type'] == option_type]
+            filtered_options = filtered_options[filtered_options['Option Type'] == option_type]
 
         return filtered_options
     
@@ -210,7 +210,7 @@ class Fetching_data:
             return pd.DataFrame()
 
         # Filter options for the specified expiration date
-        options_df = self.options_data[self.options_data['expiration_date'] == str(expiration_date)]
+        options_df = self.options_data[self.options_data['Expiration Date'] == str(expiration_date)]
 
         # If no options are found, return an empty DataFrame
         if options_df.empty:
@@ -221,9 +221,9 @@ class Fetching_data:
 
         # Filter for ITM options
         for index, row in options_df.iterrows():
-            strike_price = row['strike_price']
-            option_type = row['option_type']
-            instrument_symbol = row['symbol']
+            strike_price = row['Strike Price']
+            option_type = row['Option type']
+            instrument_symbol = row['Instrument']
 
             if option_type == 'call' and current_price > strike_price:  # Call Options ITM
                 itm_options.append(instrument_symbol)
@@ -341,21 +341,21 @@ class Fetching_data:
                     continue  # Skip to the next column if no details are found
 
                 # Validate that the fetched instrument details correspond to the instrument name
-                if 'symbol' in instrument_detail.columns and instrument_detail['symbol'].values[0] != instrument_name:
+                if 'Instrument' in instrument_detail.columns and instrument_detail['Instrument'].values[0] != instrument_name:
                     logger.error(f"Incompatible instrument data for {instrument_name}. Expected name not found.")
                     continue  # Skip processing for this column
 
                 # Calculate premium based on the option side
                 if option_side == 'BUY':
-                    if 'ask_price_usd' not in instrument_detail.columns:
+                    if 'Ask Price (USD)' not in instrument_detail.columns:
                         logger.error(f"No ask price data available for instrument: {instrument_name}.")
                         continue
-                    instrument_premium = instrument_detail['ask_price_usd'].values[0] * quantity
+                    instrument_premium = instrument_detail['Ask Pirce (USD)'].values[0] * quantity
                 else:
-                    if 'bid_price_usd' not in instrument_detail.columns:
+                    if 'Bid Price (USD)' not in instrument_detail.columns:
                         logger.error(f"No bid price data available for instrument: {instrument_name}.")
                         continue
-                    instrument_premium = instrument_detail['bid_price_usd'].values[0] * quantity
+                    instrument_premium = instrument_detail['Bid Price (USD)'].values[0] * quantity
 
                 # Check if the premium meets the threshold
                 if instrument_premium <= premium_threshold and instrument_premium > 0:

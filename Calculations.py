@@ -125,23 +125,23 @@ def calculate_option_profit(options_data_df,days_ahead_slider, quantity, risk_fr
 
     # Loop through each ITM option
     for _, option in options_data_df.iterrows():
-        option_symbol = option['symbol']
+        option_symbol = option['Instrument']
         
         # If a specific symbol is provided, filter before processing
         if specific_symbol is not None and option_symbol != specific_symbol:
             continue
 
-        strike_price = option['strike_price']
-        option_type = option['option_type']
-        bid_price = option['bid_price_usd']
-        ask_price = option['ask_price_usd']
-        bid_iv = option['bid_iv'] 
-        ask_iv = option['ask_iv'] 
+        strike_price = option['Strike Price']
+        option_type = option['Option Type']
+        bid_price = option['Bid Price (USD)']
+        ask_price = option['Ask Price (USD)']
+        bid_iv = option['Bid IV'] 
+        ask_iv = option['Ask IV'] 
 
 
         future_ask_iv = ask_iv / 100 + (change_in_iv  / 100.0)
         future_bid_iv = bid_iv / 100 + (change_in_iv  / 100.0)
-        expiration_date_str = option['expiration_date']
+        expiration_date_str = option['Expiration Date']
         expiration_date = pd.to_datetime(expiration_date_str).date()  # Ensure it's converted to date
 
         # Compute total days to expiration (at least 1 to avoid zero)
@@ -235,11 +235,11 @@ def get_most_traded_instruments(df):
     top_options_chains, top_options_symbol = fetch_data.fetch_option_data(option_list)
     
     # Cleanup options data (if you want to keep this logic)
-    top_options_chains = top_options_chains.drop(columns=['option_type', 'strike_price', 'gamma', 
-                                                           'expiration_date', 'last_price_usd', 
+    top_options_chains = top_options_chains.drop(columns=['Option Type', 'Strike Price', 'Gamma', 
+                                                           'Expiration Date', 'Last Price (USD)', 
                                                            'open_interest', 'total traded volume', 
                                                            'monetary volume'], errors='ignore')
-    new_order = ['symbol', 'ask_price_usd', 'bid_price_usd', 'delta', 'theta', 'vega', 'ask_iv', 'bid_iv']
+    new_order = ['Instrument', 'Ask Price (USD)', 'Bid Price (USD)', 'Delta', 'Theta', 'Vega', 'Ask IV', 'Bid IV']
     top_options_chains = top_options_chains[new_order]
 
     return combined_results, top_options_chains

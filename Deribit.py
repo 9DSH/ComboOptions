@@ -149,19 +149,19 @@ class DeribitAPI:
 
             # Construct the option details
             options_data.append({
-                'symbol': option_symbol,
-                'option_type': instrument['option_type'],
-                'strike_price': instrument.get('strike', 0),
-                'expiration_date': datetime.utcfromtimestamp(instrument['expiration_timestamp'] / 1000).date(),
-                'last_price_usd': last_price_btc * btc_to_usd,
-                'bid_price_usd': bid_price_btc * btc_to_usd,
-                'ask_price_usd': ask_price_btc * btc_to_usd,
-                'bid_iv': bid_iv,
-                'ask_iv': ask_iv,
-                'delta': delta,
-                'gamma': gamma,
-                'theta': theta,
-                'vega': vega,
+                'Instrument': option_symbol,
+                'Option Type': instrument['option_type'],
+                'Strike Price': instrument.get('strike', 0),
+                'Expiration Date': datetime.utcfromtimestamp(instrument['expiration_timestamp'] / 1000).date(),
+                'Last Price (USD)': last_price_btc * btc_to_usd,
+                'Bid Price (USD)': bid_price_btc * btc_to_usd,
+                'Ask Price (USD)': ask_price_btc * btc_to_usd,
+                'Bid IV': bid_iv ,
+                'Ask IV': ask_iv ,
+                'Delta': delta,
+                'Gamma': gamma,
+                'Theta': theta,
+                'Vega': vega,
                 'open_interest': open_interest,
                 'total traded volume': volume,
                 'monetary volume': volume_usd
@@ -355,7 +355,7 @@ class DeribitAPI:
 
         # Step 2: Fetch public trades if start_date is provided
         if start_date and end_date:
-            instrument_names = options_data['symbol'].tolist()
+            instrument_names = options_data['Instrument'].tolist()
             start_timestamp = int(start_date.timestamp() * 1000)
             end_timestamp = int(end_date.timestamp() * 1000) + 86400000  # End of the day
             
