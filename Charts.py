@@ -524,7 +524,7 @@ def plot_underlying_price_vs_entry_value(df, custom_price=None, custom_entry_val
             '<extra></extra>'  
         ),
         customdata=np.array([
-            [format_large_number(x), date, int(size)]
+            [format_large_number(x), date, size]
             for x, date, size in zip(df_sell['Entry Value'], df_sell['Formatted_Entry_Date'], df_sell['Size'])
         ])
     ))
@@ -551,7 +551,7 @@ def plot_underlying_price_vs_entry_value(df, custom_price=None, custom_entry_val
             '<extra></extra>'  
         ),
         customdata=np.array([
-            [format_large_number(x), date, int(size)]
+            [format_large_number(x), date, size]
             for x, date, size in zip(df_buy['Entry Value'], df_buy['Formatted_Entry_Date'], df_buy['Size'])
         ])
     ))
