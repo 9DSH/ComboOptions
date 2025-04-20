@@ -16,6 +16,7 @@ from Calculations import calculate_option_profit , calculate_totals_for_options,
 from Charts import plot_hourly_activity ,plot_most_strategy_bar_chart , plot_top_strikes_pie_chart , plot_strike_price_vs_entry_value , plot_stacked_calls_puts, plot_option_profit , plot_radar_chart, plot_price_vs_entry_date, plot_most_traded_instruments , plot_underlying_price_vs_entry_value , plot_identified_whale_trades, plot_public_profits
 from Start_fetching_data import start_fetching_data_from_api,  get_btcusd_price
 import plotly.graph_objects as go 
+from OpenAi_api import Chatbar
 
 warnings.filterwarnings("ignore", message=".*missing ScriptRunContext.*")
 # Configure logging
@@ -27,6 +28,7 @@ st.set_page_config(page_title='Trading Dashboard', layout='wide')
 
 fetch_data = Fetching_data()
 analytics = Analytic_processing()
+chat = Chatbar(openai_api_key="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")
 
 
 # Initialize the thread reference globally
@@ -45,6 +47,7 @@ def start_data_refresh_thread():
 
 def app():
     start_data_refresh_thread()
+    chat.display_chat()
     #disabled_refresh = False
         #disabled_refresh = True if st.session_state.data_refresh_thread is not None else False
         #data_c1 , data_c2 = st.columns(2)
