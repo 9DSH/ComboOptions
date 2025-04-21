@@ -8,7 +8,6 @@ import threading
 from datetime import date, datetime, timedelta , timezone
 import logging
 import warnings
-from config import OPENAI_API_KEY
 from Fetch_data import Fetching_data
 from Analytics import Analytic_processing
 from Calculations import calculate_option_profit , calculate_totals_for_options, get_most_traded_instruments , calculate_sums_of_public_trades_profit
@@ -16,6 +15,13 @@ from Charts import plot_hourly_activity ,plot_most_strategy_bar_chart , plot_top
 from Start_fetching_data import start_fetching_data_from_api,  get_btcusd_price
 import plotly.graph_objects as go 
 from AI import Chatbar
+from dotenv import load_dotenv
+
+
+load_dotenv()
+
+# now fetch the key from the environment
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 warnings.filterwarnings("ignore", message=".*missing ScriptRunContext.*")
 # Configure logging
