@@ -78,20 +78,25 @@ def app():
         col1, col2, col3 = st.columns([1, 1, 1])  # Adjust ratio for centering
         with col1:
             show_24h_public_trades = st.checkbox("Show 24h Public Trades", value=True)
-        with col2:
             
-            st.header("Option Dashboard")
-        with col3:
-            colmm1, colmm2 , colmm3, colmm4= st.columns([2,2,0.8,0.8])
+        with col2:
+            colmm1, colmm2 , colmm3= st.columns([1,1,1])
+            with colmm1:
+                st.markdown(f"<div style='font-size: 12px; margin-left: 80px;'>Lowest</div><div style='font-size: 16px;color: #f54b4b; margin-left: 80px;'>{lowest}</div>", unsafe_allow_html=True)
             with colmm2:
                 btc_display_price = f"{btc_price:.0f}" if btc_price is not None else "Loading..."
-                st.metric(label="BTC USD", value=btc_display_price, delta=None, delta_color="normal", help="Bitcoin price in USD")
+                st.metric(label="BTC USD", value=btc_display_price, delta=None, delta_color="normal", help="Bitcoin price in USD ")
             with colmm3:
-                st.markdown(f"<div style='font-size: 16px; color: #90EE90;'>{highest}</div><div style='font-size: 12px; '>Highest</div>", unsafe_allow_html=True)
-                st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)  # Add space between rows
-
-            with colmm4:
-                st.markdown(f"<div style='font-size: 16px;color: #f54b4b;'>{lowest}</div><div style='font-size: 12px;'>Lowest</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='font-size: 12px; margin-left: -50px;'>Highest</div><div style='font-size: 16px; color: #90EE90; margin-left: -50px;'>{highest}</div>", unsafe_allow_html=True)
+            
+                
+        with col3:
+            colmm1, colmm2 , colmm3= st.columns([2,2,1])
+            with colmm3:
+                current_utc_time = datetime.now(timezone.utc).strftime("%H:%M:%S")
+                st.markdown(f"<div style='font-size: 12px; '>UTC Time</div><div style='font-size: 16px; color: gray;'>{current_utc_time}</div>", unsafe_allow_html=True)
+            
+            
 
                 
 
@@ -363,11 +368,12 @@ def app():
                             st.caption(f"Analyzed {len(strategy_df_copy)} trades from {insights['summary_stats']['time_range_start']} to {insights['summary_stats']['time_range_end']}")
 
                             # 1. Key Metrics
-                            padding , col1, col2, col3, padding2 = st.columns([1,1,1,1,1])
-                            col1.metric("Total Volume (BTC)", f"{insights['summary_stats']['total_size_btc']:,.1f}")
-                            col2.metric("Average Trade Size", f"{insights['summary_stats']['avg_trade_size']:,.1f} BTC")
+                            padding , col1, col2, col3, col4, padding2 = st.columns([1,1,1,1,1,1])
+                            col1.metric("Total Strategies", f"{len(strategy_df_copy)}")
+                            col2.metric("Total Volume (BTC)", f"{insights['summary_stats']['total_size_btc']:,.1f}")
+                            col3.metric("Average Trade Size", f"{insights['summary_stats']['avg_trade_size']:,.1f} BTC")
                             most_active_strategy = insights['strategy_analysis']['top_strategies'].index[0]
-                            col3.metric("Most Active Strategy", str(most_active_strategy))
+                            col4.metric("Most Active Strategy", str(most_active_strategy))
                             st.markdown("---")  # Horizontal line
 
                             # 2. Strategy Distribution
