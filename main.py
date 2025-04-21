@@ -4,31 +4,30 @@ import pandas as pd
 import sys
 import os
 import subprocess
-import time
 import threading
 from datetime import date, datetime, timedelta , timezone
 import logging
 import warnings
-import webbrowser
+from config import OPENAI_API_KEY
 from Fetch_data import Fetching_data
 from Analytics import Analytic_processing
 from Calculations import calculate_option_profit , calculate_totals_for_options, get_most_traded_instruments , calculate_sums_of_public_trades_profit
 from Charts import plot_hourly_activity ,plot_most_strategy_bar_chart , plot_top_strikes_pie_chart , plot_strike_price_vs_entry_value , plot_stacked_calls_puts, plot_option_profit , plot_radar_chart, plot_price_vs_entry_date, plot_most_traded_instruments , plot_underlying_price_vs_entry_value , plot_identified_whale_trades, plot_public_profits
 from Start_fetching_data import start_fetching_data_from_api,  get_btcusd_price
 import plotly.graph_objects as go 
-from OpenAi_api import Chatbar
+from AI import Chatbar
 
 warnings.filterwarnings("ignore", message=".*missing ScriptRunContext.*")
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Set the Streamlit page configuration
 st.set_page_config(page_title='Trading Dashboard', layout='wide')
+
 
 fetch_data = Fetching_data()
 analytics = Analytic_processing()
-chat = Chatbar(openai_api_key="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")
+chat = Chatbar(openai_api_key=OPENAI_API_KEY)
 
 
 # Initialize the thread reference globally
