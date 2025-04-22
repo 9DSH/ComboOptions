@@ -29,7 +29,7 @@ class Chatbar:
             st.session_state.last_user_message = ""
         
         if "last_ai_message" not in st.session_state:
-            st.session_state.last_ai_message = "Ask me about Deribit options analytics or market trades."
+            st.session_state.last_ai_message = "Ask me about Deribit options analytics or public trades."
 
     def load_market_insights(self):
         """Loads market trades data, ensuring it always returns a DataFrame for insights."""
