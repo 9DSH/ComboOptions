@@ -17,7 +17,7 @@ import plotly.graph_objects as go
 from AI import Chatbar
 
 
-OPENAI_API_KEY = None
+OpenAI_KEY = None
 
 
 warnings.filterwarnings("ignore", message=".*missing ScriptRunContext.*")
@@ -30,7 +30,7 @@ st.set_page_config(page_title='Trading Dashboard', layout='wide')
 
 fetch_data = Fetching_data()
 analytics = Analytic_processing()
-chat = Chatbar(openai_api_key=OPENAI_API_KEY)
+chat = Chatbar(openai_api_key=OpenAI_KEY )
 
 # Initialize the thread reference globally
 data_refresh_thread = None
