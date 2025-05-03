@@ -240,59 +240,93 @@ def plot_option_profit(results_df,
     )
 
     return fig
-
-
 def plot_stacked_calls_puts(df):
     """
-    Plot a stacked column chart of total Calls and total Puts against Strike Price.
+    Plot a stacked column chart of total Calls and total Puts against Strike Price,
+    separating Buy and Sell transactions.
 
     Parameters:
-        df (pd.DataFrame): DataFrame containing options data with 'Strike Price', 'Option Type', and 'Side' columns.
+        df (pd.DataFrame): DataFrame containing options data with 'Strike Price', 
+                           'Option Type', and 'Side' columns.
     """
     # Create a DataFrame to hold counts of Calls and Puts by Strike Price
     plot_data = df.copy()
 
-    # Create columns to identify Call and Put options
-    plot_data['Is Call'] = plot_data['Option Type'].str.lower() == 'call'
-    plot_data['Is Put'] = plot_data['Option Type'].str.lower() == 'put'
-
-    # Group by Strike Price and Option Type to sum counts, buys, and sells
+    # Group by Strike Price and Option Type
     grouped_data = plot_data.groupby(['Strike Price', 'Option Type']).agg(
-        Total_Calls=('Is Call', 'sum'),                                   # Count Calls
-        Total_Puts=('Is Put', 'sum'),                                     # Count Puts
-        Buy_Total=('Side', lambda x: (x == 'BUY').sum()),               # Total Buys
-        Sell_Total=('Side', lambda x: (x == 'SELL').sum())              # Total Sells
-    ).reset_index()
+        Buy_Total=('Side', lambda x: (x == 'BUY').sum()),   # Total Buys
+        Sell_Total=('Side', lambda x: (x == 'SELL').sum())  # Total Sells
+    ).unstack(fill_value=0)  # Unstack the DataFrame for clarity
+
+    # Remove the MultiIndex created by unstack and flatten the DataFrame
+    grouped_data.columns = ['_'.join(col).strip() for col in grouped_data.columns.values]
+
+    # Calculate totals for individual puts and calls
+    grouped_data['Total_Puts'] = grouped_data['Buy_Total_Put'] + grouped_data['Sell_Total_Put']
+    grouped_data['Total_Calls'] = grouped_data['Buy_Total_Call'] + grouped_data['Sell_Total_Call']
+
+    # Create custom data for hover
+    customdata = []
+    for index, row in grouped_data.iterrows():
+        buy_calls_total = row['Buy_Total_Call']
+        sell_calls_total = row['Sell_Total_Call']
+        buy_puts_total = row['Buy_Total_Put']
+        sell_puts_total = row['Sell_Total_Put']
+
+        customdata.append([
+            buy_calls_total, 
+            sell_calls_total, 
+            buy_puts_total, 
+            sell_puts_total,
+            (buy_calls_total / row['Total_Calls'] * 100) if row['Total_Calls'] > 0 else 0,
+            (sell_calls_total / row['Total_Calls'] * 100) if row['Total_Calls'] > 0 else 0,
+            (buy_puts_total / row['Total_Puts'] * 100) if row['Total_Puts'] > 0 else 0,
+            (sell_puts_total / row['Total_Puts'] * 100) if row['Total_Puts'] > 0 else 0,
+        ])
+
+    customdata = pd.DataFrame(customdata).values
 
     # Create an interactive stacked bar chart
     fig = go.Figure()
 
-    # Loop through each option type to create bars
-    for opt_type in ['Call', 'Put']:
-        option_data = grouped_data[grouped_data['Option Type'] == opt_type]
+    # Define the order for stacking (reversed order)
+    stack_order = [ ('Sell', 'Call') , ('Buy', 'Call'), ('Sell', 'Put'), ('Buy', 'Put')]
+
+    # Add traces in reverse order to change the stacking
+    for opt_type in stack_order:
+        action, option = opt_type
+        y_value = grouped_data[f'{action}_Total_{option}']
         
         fig.add_trace(go.Bar(
-            x=option_data['Strike Price'],
-            y=option_data['Total_Calls'] if opt_type == 'Call' else option_data['Total_Puts'],
-            name=f'Total {opt_type}s',
-            marker=dict(color='green' if opt_type == 'Call' else 'red', line=dict(color='rgba(0, 0, 0, 0)', width=0)),  # No border
-            hovertemplate=f'Strike Price: %{{x}}<br>Total {opt_type}s: %{{y}}<br>Total Buys: %{{customdata[0]}}<br>Total Sells: %{{customdata[1]}}<extra></extra>',  # Update hover information for each type
-            customdata=option_data[['Buy_Total', 'Sell_Total']].values  # Pass custom data for hover
+            x=grouped_data.index,
+            y=y_value,
+            name=f'{action} {option}s',
+            marker=dict(
+                color='green' if action == 'Buy' and option == 'Put' 
+                      else 'red' if action == 'Sell' and option == 'Put' 
+                      else 'teal' if action == 'Buy' and option == 'Call' 
+                      else 'orange',
+                line=dict(width=0)  # Remove the white border
+            ),
+            hovertemplate=(
+                "Strike Price: %{x}<br>" +
+                "Buy Calls: %{customdata[0]} (%{customdata[4]:.2f}%)<br>" +
+                "Sell Calls: %{customdata[1]} (%{customdata[5]:.2f}%)<br>" +
+                "Buy Puts: %{customdata[2]} (%{customdata[6]:.2f}%)<br>" +
+                "Sell Puts: %{customdata[3]} (%{customdata[7]:.2f}%)<br>"
+            ),
+            customdata=customdata
         ))
 
     # Update layout settings
     fig.update_layout(
         xaxis_title='Strike Price',
         yaxis_title='Total Number',
-        barmode='stack',  # Set the bar mode to stack
+        barmode='stack',
         template="plotly_white"  # Clean background
     )
 
     return fig
-
-
-
-
 
 def plot_strike_price_vs_entry_value(filtered_df):
     fig = go.Figure()
@@ -315,7 +349,7 @@ def plot_strike_price_vs_entry_value(filtered_df):
         y=filtered_df.loc[(filtered_df['Option Type'] == 'Put') & (filtered_df['Side'] == 'BUY'), 'Entry Value'],
         mode='markers',
         marker=dict(symbol='triangle-down', color='green', size=10, opacity=1, line=dict(color='black', width=0.5)),  # Downward green triangle for BUY with black border
-        name='Put Buy',
+        name='Buy Puts',
         hoverinfo='text', 
         hovertext=filtered_df.loc[(filtered_df['Option Type'] == 'Put') & (filtered_df['Side'] == 'BUY'), 'hover_text']
     ))
@@ -326,7 +360,7 @@ def plot_strike_price_vs_entry_value(filtered_df):
         y=filtered_df.loc[(filtered_df['Option Type'] == 'Put') & (filtered_df['Side'] == 'SELL'), 'Entry Value'],
         mode='markers',
         marker=dict(symbol='triangle-down', color='red', size=10, opacity=1, line=dict(color='black', width=0.5)),  # Downward red triangle for SELL with black border
-        name='Put Sell',
+        name='Sell Puts',
         hoverinfo='text', 
         hovertext=filtered_df.loc[(filtered_df['Option Type'] == 'Put') & (filtered_df['Side'] == 'SELL'), 'hover_text']
     ))
@@ -337,7 +371,7 @@ def plot_strike_price_vs_entry_value(filtered_df):
         y=filtered_df.loc[(filtered_df['Option Type'] == 'Call') & (filtered_df['Side'] == 'BUY'), 'Entry Value'],
         mode='markers',
         marker=dict(symbol='triangle-up', color='teal', size=10, opacity=1, line=dict(color='black', width=0.5)),  # Upward teal triangle for BUY with black border
-        name='Call Buy',
+        name='Buy Calls',
         hoverinfo='text', 
         hovertext=filtered_df.loc[(filtered_df['Option Type'] == 'Call') & (filtered_df['Side'] == 'BUY'), 'hover_text']
     ))
@@ -348,7 +382,7 @@ def plot_strike_price_vs_entry_value(filtered_df):
         y=filtered_df.loc[(filtered_df['Option Type'] == 'Call') & (filtered_df['Side'] == 'SELL'), 'Entry Value'],
         mode='markers',
         marker=dict(symbol='triangle-up', color='darkorange', size=10, opacity=1, line=dict(color='black', width=0.5)),  # Upward dark orange triangle for SELL with black border
-        name='Call Sell',
+        name='Sell Calls',
         hoverinfo='text', 
         hovertext=filtered_df.loc[(filtered_df['Option Type'] == 'Call') & (filtered_df['Side'] == 'SELL'), 'hover_text']
     ))
@@ -660,7 +694,13 @@ def plot_price_vs_entry_date(df):
     # Show the plot
     return fig
 
-def plot_identified_whale_trades(df,  min_size=5, max_size=50, min_opacity=0.3, max_opacity=1.0, entry_value_threshold=None):
+def plot_identified_whale_trades(df, min_size=5, max_size=50, min_opacity=0.3, max_opacity=1.0, entry_value_threshold=None, filter_type=None):
+    
+    if filter_type == "Entry Value":
+        filter_type_str = 'Entry Value'
+    else:
+        filter_type_str = 'Size'
+
     def scale_marker_size_and_opacity(entry_values):
         normalized_values = (entry_values - entry_values.min()) / (entry_values.max() - entry_values.min())
         scaled_sizes = normalized_values * (max_size - min_size) + min_size
@@ -680,8 +720,8 @@ def plot_identified_whale_trades(df,  min_size=5, max_size=50, min_opacity=0.3, 
     df['Entry Date'] = pd.to_datetime(df['Entry Date'])
 
     # Calculate IQR for 'Entry Value'
-    Q1 = df['Entry Value'].quantile(0.25)
-    Q3 = df['Entry Value'].quantile(0.75)
+    Q1 = df[filter_type_str].quantile(0.25)
+    Q3 = df[filter_type_str].quantile(0.75)
     IQR = Q3 - Q1
 
     # Calculate the upper bound for outliers
@@ -691,10 +731,10 @@ def plot_identified_whale_trades(df,  min_size=5, max_size=50, min_opacity=0.3, 
     threshold = entry_value_threshold if entry_value_threshold is not None else upper_bound
 
     # Filter out the outliers based on the threshold
-    outliers = df[df['Entry Value'] > threshold]
+    outliers = df[df[filter_type_str] > threshold]
 
     # Scale marker sizes and opacities
-    marker_sizes, marker_opacities = scale_marker_size_and_opacity(outliers['Entry Value'])
+    marker_sizes, marker_opacities = scale_marker_size_and_opacity(outliers[filter_type_str])
 
     # Create a Plotly figure
     fig = go.Figure()
@@ -708,7 +748,7 @@ def plot_identified_whale_trades(df,  min_size=5, max_size=50, min_opacity=0.3, 
             hover_text = "<b>Connected Markers:</b><br>"
             for _, row in group.iterrows():
                 hover_text += (
-                    f"Price: {format_value(row['Strike Price'])} | Value: {format_value(row['Entry Value'])}<br>"
+                    f"Price: {format_value(row['Strike Price'])} | Value: {format_value(row[filter_type_str])}<br>"
                 )
         else:
             hover_text = "Connected Markers: N/A"
@@ -732,7 +772,7 @@ def plot_identified_whale_trades(df,  min_size=5, max_size=50, min_opacity=0.3, 
                 hovertemplate=(
                     f"Entry Date: {row['Entry Date']}<br>"
                     f"Strike Price: {format_value(row['Strike Price'])}<br>"
-                    f"Entry Value: {format_value(row['Entry Value'])}<br>"
+                    f"Value: {format_value(row[filter_type_str])}<br>"
                     f"{hover_text}<extra></extra>"
                 )
             ))
@@ -748,8 +788,8 @@ def plot_identified_whale_trades(df,  min_size=5, max_size=50, min_opacity=0.3, 
         hovermode='closest'
     )
 
-    # Show the plot
-    return fig
+    # Return the filtered DataFrame and the figure
+    return outliers, fig
 
 
 def plot_expiration_profit(strategy_data, chart_type, trade_option_details):
