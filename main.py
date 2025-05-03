@@ -16,10 +16,6 @@ from Start_fetching_data import start_fetching_data_from_api,  get_btcusd_price
 import plotly.graph_objects as go 
 from AI import Chatbar
 
-
-OpenAI_KEY = None
-
-
 warnings.filterwarnings("ignore", message=".*missing ScriptRunContext.*")
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -28,9 +24,13 @@ logger = logging.getLogger(__name__)
 st.set_page_config(page_title='Trading Dashboard', layout='wide')
 
 
+
+OpenAI_KEY = st.sidebar.text_input("Enter your OpenAI API Key", type="password")
+
 fetch_data = Fetching_data()
 analytics = Analytic_processing()
 chat = Chatbar(openai_api_key=OpenAI_KEY )
+
 
 # Initialize the thread reference globally
 data_refresh_thread = None
@@ -50,8 +50,6 @@ def start_data_refresh_thread():
 
 def app():
     start_data_refresh_thread()
-    
-
     chat.display_chat()
     #disabled_refresh = False
         #disabled_refresh = True if st.session_state.data_refresh_thread is not None else False
