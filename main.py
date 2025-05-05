@@ -82,7 +82,7 @@ def app():
             
                 
         with col3:
-            colmm1, colmm2 , colmm3= st.columns([2,2,1])
+            colmm1, colmm2 , colmm3= st.columns([2,2,2])
             with colmm3:
                 current_utc_time = datetime.now(timezone.utc).strftime("%H:%M:%S")
                 st.markdown(f"<div style='font-size: 12px; '>UTC Time</div><div style='font-size: 16px; color: gray;'>{current_utc_time}</div>", unsafe_allow_html=True)
@@ -152,7 +152,7 @@ def app():
                 market_screener_df.dropna(subset=['Entry Date', 'Underlying Price'], inplace=True)
                 filter_row = st.container()
                 with filter_row:
-                    col_date,col_vertical_1, col_strike_size_range, col_vertical_2,  col_expiration, col_vertical_3, col_side_type = st.columns([0.3, 0.01, 0.3, 0.01, 0.4,0.01, 0.2])
+                    col_date,col_vertical_1, col_strike_size_range, col_vertical_2,  col_expiration, col_vertical_3, col_side_type = st.columns([0.3, 0.01, 0.3, 0.01, 0.3, 0.01, 0.1])
                     #with col_refresh: 
                         #apply_market_filter = st.button(label="Apply", key="apply_market_filter")
 
@@ -871,7 +871,7 @@ def app():
         simulation_tabs = st.tabs(["Startegy",  "Manual"])
         with simulation_tabs[0]:
             row_option_details = st.container()
-            sim_padding , sim_strategy_list , sim_verticalline , sim_buttons= st.columns([0.02 ,0.6 ,0.05, 0.1 ])
+            sim_strategy_list , sim_verticalline , sim_buttons= st.columns([0.8 ,0.01, 0.1 ])
             with sim_strategy_list:
                 option_details_list = []
                 if 'stored_strategy_dict' in st.session_state:
@@ -896,53 +896,53 @@ def app():
                                     sim_side = side
                                     sim_option_details.loc[:, 'Side'] = side
 
-                                    c1, c2 = st.columns([0.8,0.2])
+                                    c1, c2 = st.columns([0.9,0.1])
                                     with c1 : 
                                         st.markdown(
                                             f"""
                                             <div style='display: flex; justify-content: flex-start; gap: 10px; padding-top: 10px;'>
                                                 <div style='border:1px solid gray;padding:10px;border-radius:5px; text-align: center;'>
-                                                    <div style='font-size: smaller; color: gray;'>Instrument</div>
+                                                    <div style='font-size: x-small; color: gray;'>Instrument</div>
                                                     {instrument}
                                                 </div>
                                                 <div style='border:1px solid gray;padding:10px;border-radius:5px; text-align: center;'>
-                                                    <div style='font-size: smaller; color: gray;'>Last Price (USD)</div>
+                                                    <div style='font-size: x-small; color: gray;'>Last Price (USD)</div>
                                                     {sim_last_price:.0f}
                                                 </div>
                                                 <div style='border:1px solid gray;padding:10px;border-radius:5px; text-align: center;'>
-                                                    <div style='font-size: smaller; color: gray;'>Bid Price (USD)</div>
+                                                    <div style='font-size: x-small; color: gray;'>Bid Price (USD)</div>
                                                     {sim_bid_price:.0f}
                                                 </div>
                                                 <div style='border:1px solid gray;padding:10px;border-radius:5px; text-align: center;'>
-                                                    <div style='font-size: smaller; color: gray;'>Ask Price (USD)</div>
+                                                    <div style='font-size: x-small; color: gray;'>Ask Price (USD)</div>
                                                     { sim_ask_price:.0f}
                                                 </div>
                                                 <div style='border:1px solid gray;padding:10px;border-radius:5px; text-align: center;'>
-                                                    <div style='font-size: smaller; color: gray;'>Bid IV %</div>
+                                                    <div style='font-size: x-small; color: gray;'>Bid IV %</div>
                                                     {  sim_bid_iv:.0f}
                                                 </div>
                                                 <div style='border:1px solid gray;padding:10px;border-radius:5px; text-align: center;'>
-                                                    <div style='font-size: smaller; color: gray;'>Ask IV %</div>
+                                                    <div style='font-size: x-small; color: gray;'>Ask IV %</div>
                                                     {  sim_ask_iv:.0f}
                                                 </div>
                                                 <div style='border:1px solid gray;padding:10px;border-radius:5px; text-align: center;'>
-                                                    <div style='font-size: smaller; color: gray;'>Delta</div>
+                                                    <div style='font-size: x-small; color: gray;'>Delta</div>
                                                     {sim_delta:.2f}
                                                 </div>
                                                 <div style='border:1px solid gray;padding:10px;border-radius:5px; text-align: center;'>
-                                                    <div style='font-size: smaller; color: gray;'>Gamma</div>
+                                                    <div style='font-size: x-small; color: gray;'>Gamma</div>
                                                     {sim_gamma:.2f}
                                                 </div>
                                                 <div style='border:1px solid gray;padding:10px;border-radius:5px; text-align: center;'>
-                                                    <div style='font-size: smaller; color: gray;'>Theta</div>
+                                                    <div style='font-size: x-small; color: gray;'>Theta</div>
                                                     {sim_theta:.2f}
                                                 </div>
                                                 <div style='border:1px solid gray;padding:10px;border-radius:5px; text-align: center;'>
-                                                    <div style='font-size: smaller; color: gray;'>Vega</div>
+                                                    <div style='font-size: x-small; color: gray;'>Vega</div>
                                                     {sim_vega:.2f}
                                                 </div>
                                                 <div style='border:1px solid gray;padding:10px;border-radius:5px; text-align: center;'>
-                                                    <div style='font-size: smaller; color: gray;'>Side</div>
+                                                    <div style='font-size: x-small; color: gray;'>Side</div>
                                                     {sim_side}
                                                 </div>
                                             </div>
