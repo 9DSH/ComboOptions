@@ -960,17 +960,15 @@ def app():
                             st.warning("Picked strategy is empty.")
                 else:
                     st.warning("No strategy has been picked yet.")
-            with sim_verticalline: 
-                st.markdown("<div style='height: 150px; width: 1px; background-color: gray; margin: auto;'></div>", unsafe_allow_html=True)  # Vertical line
-            with sim_buttons:
-               
-                if 'stored_strategy_dict' in st.session_state and st.session_state['stored_strategy_dict']:
-                    
-                    apply_simlutaion = st.button(label="Apply Strategy", key="apply_simulation")
-                    remove_strategy = st.button(label="Remove Strategy", key="Remove strategy")
-                    if remove_strategy:
-                        st.session_state['stored_strategy_dict'] = {}
-                    
+            if 'stored_strategy_dict' in st.session_state and st.session_state['stored_strategy_dict']:
+                with sim_verticalline: 
+                    st.markdown("<div style='height: 150px; width: 1px; background-color: gray; margin: auto;'></div>", unsafe_allow_html=True)  # Vertical line
+                with sim_buttons:
+                        apply_simlutaion = st.button(label="Apply Strategy", key="apply_simulation")
+                        remove_strategy = st.button(label="Remove Strategy", key="Remove strategy")
+                        if remove_strategy:
+                            st.session_state['stored_strategy_dict'] = {}
+                        
 
             st.markdown("---")
 
