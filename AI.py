@@ -64,7 +64,7 @@ class Chatbar:
 
             return top_options, insights_summary_df, strategy_analysis_df  # Return as needed
         except Exception as e:
-            st.error(f"Error loading market trades: {str(e)}")
+            st.warning(f"Error loading market trades: {str(e)}")
             return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()  # Adjust return structure to match expectations
                 
     def df_to_json(self, df):

@@ -55,6 +55,7 @@ class Fetching_data:
 
         def load_csv(file_path, data_attribute):
             """Helper function to load CSV with error handling."""
+            
             try:
                 if os.path.exists(file_path):
                     df = pd.read_csv(file_path, on_bad_lines='skip')
@@ -260,6 +261,7 @@ class Fetching_data:
         """
         # Load the complete options screener data from the CSV
         if show_24h_public_trades == False or show_24h_public_trades == None:
+
             self.load_from_csv(data_type="options_screener")
             options_screener_copy = self.options_screener.copy()
         if show_24h_public_trades == True:

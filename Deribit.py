@@ -328,13 +328,13 @@ class DeribitAPI:
             existing_df = pd.read_csv(self.options_screener_csv) if os.path.exists(self.options_screener_csv) else pd.DataFrame(columns=new_order)
         except FileNotFoundError:
             existing_df = pd.DataFrame(columns=new_order)
-
+        
+        expired_trades_removed = self.remove_expired_trades(existing_df)
         # Concatenate the new data with the existing data
-        combined_df = pd.concat([existing_df, public_trades_df])
+        combined_df = pd.concat([expired_trades_removed, public_trades_df])
         # Identify and remove all rows with duplicate Trade IDs (keep none)
         mask = combined_df.duplicated(subset=['Trade ID', 'Price (BTC)' , 'Underlying Price'], keep=False)
         public_trades_total = combined_df[~mask]
-        
         # Save the processed DataFrame to CSV using the existing method
         self.save_to_csv(public_trades_total, data_type="options_screener")
         logging.info(f"Updated options screener data saved to {self.options_screener_csv}")
@@ -342,7 +342,44 @@ class DeribitAPI:
         self.save_to_csv(public_trades_df, data_type="public_trades_24h")
         logging.info("public_trades_24h Options data CSV saved.")
 
+    def remove_expired_trades(self, data_df):
+        """
+        Remove rows from the DataFrame where the 'Expiration Date' is before the current date.
+        If the current time is 8:00 UTC, also remove trades that expired yesterday.
+        Print the number of expired trades removed and return the filtered DataFrame.
+        The returned DataFrame will have the same format as the input.
+        """
+        df = data_df.copy()
+        # Create a temporary parsed column for comparison
+        parsed_col = 'Expiration Date Parsed'
+        df[parsed_col] = pd.to_datetime(df['Expiration Date'], format='%d-%b-%y', errors='coerce')
 
+        # Get the current date and time in UTC
+        current_utc_datetime = datetime.utcnow()
+        # Determine the cutoff date for expiration
+        if current_utc_datetime.hour >= 8:
+            cutoff_date = pd.to_datetime(current_utc_datetime.date())
+            print("cutoff date expiry:" , cutoff_date)
+        else:
+            cutoff_date = pd.to_datetime((current_utc_datetime - timedelta(days=1)).date()).replace(hour=8, minute=0, second=0)
+            print("cutoff date:" , cutoff_date)
+
+        # Filter out expired trades using the parsed column
+        expired_trades = df[df[parsed_col] < cutoff_date]
+        num_expired_trades = expired_trades.shape[0]
+        df = df[df[parsed_col] > cutoff_date]
+
+        # Print the number of expired trades
+        print(f"{num_expired_trades} trades are going to be expired.")
+
+        # Drop the temporary column before returning
+        df = df.drop(columns=[parsed_col])
+
+        # Ensure the returned DataFrame has the same columns and order as the input
+        df = df[data_df.columns]
+
+        return df
+    
     def execute_data_fetch(self, currency='BTC', start_date=None, end_date=None):
         """Fetch and save options and public trades data."""
         logging.info("Starting the data fetching process...")
@@ -363,7 +400,6 @@ class DeribitAPI:
 
             # Run the async fetching
             public_trades = asyncio.run(self.fetch_all_public_trades_async(instrument_names, start_timestamp, end_timestamp))
-
             if public_trades:
                 public_trades_df = pd.DataFrame(public_trades)
                 self.process_screener_data(public_trades_df )  # Process and save the public trades data

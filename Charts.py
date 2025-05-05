@@ -252,26 +252,26 @@ def plot_stacked_calls_puts(df):
     # Create a DataFrame to hold counts of Calls and Puts by Strike Price
     plot_data = df.copy()
 
-    # Group by Strike Price and Option Type
+    # Initialize the structure for grouped data
     grouped_data = plot_data.groupby(['Strike Price', 'Option Type']).agg(
         Buy_Total=('Side', lambda x: (x == 'BUY').sum()),   # Total Buys
         Sell_Total=('Side', lambda x: (x == 'SELL').sum())  # Total Sells
     ).unstack(fill_value=0)  # Unstack the DataFrame for clarity
-
-    # Remove the MultiIndex created by unstack and flatten the DataFrame
+    
+    # Flatten the MultiIndex in the columns
     grouped_data.columns = ['_'.join(col).strip() for col in grouped_data.columns.values]
 
-    # Calculate totals for individual puts and calls
-    grouped_data['Total_Puts'] = grouped_data['Buy_Total_Put'] + grouped_data['Sell_Total_Put']
-    grouped_data['Total_Calls'] = grouped_data['Buy_Total_Call'] + grouped_data['Sell_Total_Call']
+    # Prepare total counts for Calls and Puts based on available data
+    grouped_data['Total_Calls'] = grouped_data.get('Buy_Total_Call', 0) + grouped_data.get('Sell_Total_Call', 0)
+    grouped_data['Total_Puts'] = grouped_data.get('Buy_Total_Put', 0) + grouped_data.get('Sell_Total_Put', 0)
 
-    # Create custom data for hover
+    # Create custom data for hover display
     customdata = []
     for index, row in grouped_data.iterrows():
-        buy_calls_total = row['Buy_Total_Call']
-        sell_calls_total = row['Sell_Total_Call']
-        buy_puts_total = row['Buy_Total_Put']
-        sell_puts_total = row['Sell_Total_Put']
+        buy_calls_total = row.get('Buy_Total_Call', 0)
+        sell_calls_total = row.get('Sell_Total_Call', 0)
+        buy_puts_total = row.get('Buy_Total_Put', 0)
+        sell_puts_total = row.get('Sell_Total_Put', 0)
 
         customdata.append([
             buy_calls_total, 
@@ -290,33 +290,40 @@ def plot_stacked_calls_puts(df):
     fig = go.Figure()
 
     # Define the order for stacking (reversed order)
-    stack_order = [ ('Sell', 'Call') , ('Buy', 'Call'), ('Sell', 'Put'), ('Buy', 'Put')]
+    stack_order = [
+        ('Sell', 'Call'),
+        ('Buy', 'Call'),
+        ('Sell', 'Put'),
+        ('Buy', 'Put')
+    ]
 
-    # Add traces in reverse order to change the stacking
+    # Add traces based on availability of data
     for opt_type in stack_order:
         action, option = opt_type
-        y_value = grouped_data[f'{action}_Total_{option}']
-        
-        fig.add_trace(go.Bar(
-            x=grouped_data.index,
-            y=y_value,
-            name=f'{action} {option}s',
-            marker=dict(
-                color='green' if action == 'Buy' and option == 'Put' 
-                      else 'red' if action == 'Sell' and option == 'Put' 
-                      else 'teal' if action == 'Buy' and option == 'Call' 
-                      else 'orange',
-                line=dict(width=0)  # Remove the white border
-            ),
-            hovertemplate=(
-                "Strike Price: %{x}<br>" +
-                "Buy Calls: %{customdata[0]} (%{customdata[4]:.2f}%)<br>" +
-                "Sell Calls: %{customdata[1]} (%{customdata[5]:.2f}%)<br>" +
-                "Buy Puts: %{customdata[2]} (%{customdata[6]:.2f}%)<br>" +
-                "Sell Puts: %{customdata[3]} (%{customdata[7]:.2f}%)<br>"
-            ),
-            customdata=customdata
-        ))
+        y_value = grouped_data.get(f'{action}_Total_{option}', pd.Series([0] * len(grouped_data)))
+
+        # Only add traces if the option type has data
+        if any(y_value):
+            fig.add_trace(go.Bar(
+                x=grouped_data.index,
+                y=y_value,
+                name=f'{action} {option}s',
+                marker=dict(
+                    color='green' if action == 'Buy' and option == 'Put' 
+                          else 'red' if action == 'Sell' and option == 'Put' 
+                          else 'teal' if action == 'Buy' and option == 'Call' 
+                          else 'orange',
+                    line=dict(width=0)  # Remove the white border
+                ),
+                hovertemplate=(
+                    "Strike Price: %{x}<br>" +
+                    "Buy Calls: %{customdata[0]} (%{customdata[4]:.2f}%)<br>" +
+                    "Sell Calls: %{customdata[1]} (%{customdata[5]:.2f}%)<br>" +
+                    "Buy Puts: %{customdata[2]} (%{customdata[6]:.2f}%)<br>" +
+                    "Sell Puts: %{customdata[3]} (%{customdata[7]:.2f}%)<br>"
+                ),
+                customdata=customdata
+            ))
 
     # Update layout settings
     fig.update_layout(
@@ -695,14 +702,17 @@ def plot_price_vs_entry_date(df):
     return fig
 
 def plot_identified_whale_trades(df, min_size=5, max_size=50, min_opacity=0.3, max_opacity=1.0, entry_value_threshold=None, filter_type=None):
-    
     if filter_type == "Entry Value":
         filter_type_str = 'Entry Value'
     else:
         filter_type_str = 'Size'
 
     def scale_marker_size_and_opacity(entry_values):
-        normalized_values = (entry_values - entry_values.min()) / (entry_values.max() - entry_values.min())
+        if entry_values.max() == entry_values.min():
+            # All values are the same, avoid division by zero
+            normalized_values = np.ones_like(entry_values)
+        else:
+            normalized_values = (entry_values - entry_values.min()) / (entry_values.max() - entry_values.min())
         scaled_sizes = normalized_values * (max_size - min_size) + min_size
         scaled_opacities = normalized_values * (max_opacity - min_opacity) + min_opacity
         return scaled_sizes, scaled_opacities
@@ -715,11 +725,28 @@ def plot_identified_whale_trades(df, min_size=5, max_size=50, min_opacity=0.3, m
             return f"{value / 1_000:.0f}k"
         else:
             return f"{value:,}"
+        
+    def format_date(expiration_date_str):
+        # If it's already a datetime object, just format it
+        if isinstance(expiration_date_str, datetime):
+            return expiration_date_str.strftime('%d%b')
+        # Try parsing as '%d-%b-%y'
+        try:
+            return datetime.strptime(expiration_date_str, '%d-%b-%y').strftime('%d%b')
+        except Exception:
+            pass
+        # Try parsing as '%Y-%m-%d'
+        try:
+            return datetime.strptime(expiration_date_str, '%Y-%m-%d').strftime('%d%b')
+        except Exception:
+            pass
+        # If all fails, return as is or handle as needed
+        return str(expiration_date_str)
 
     # Ensure 'Entry Date' is in datetime format
     df['Entry Date'] = pd.to_datetime(df['Entry Date'])
 
-    # Calculate IQR for 'Entry Value'
+    # Calculate IQR for 'Entry Value' or 'Size'
     Q1 = df[filter_type_str].quantile(0.25)
     Q3 = df[filter_type_str].quantile(0.75)
     IQR = Q3 - Q1
@@ -731,7 +758,8 @@ def plot_identified_whale_trades(df, min_size=5, max_size=50, min_opacity=0.3, m
     threshold = entry_value_threshold if entry_value_threshold is not None else upper_bound
 
     # Filter out the outliers based on the threshold
-    outliers = df[df[filter_type_str] > threshold]
+    outliers = df[df[filter_type_str] > threshold].copy()
+    outliers = outliers.reset_index(drop=True)  # Reset index for positional access
 
     # Scale marker sizes and opacities
     marker_sizes, marker_opacities = scale_marker_size_and_opacity(outliers[filter_type_str])
@@ -748,14 +776,15 @@ def plot_identified_whale_trades(df, min_size=5, max_size=50, min_opacity=0.3, m
             hover_text = "<b>Connected Markers:</b><br>"
             for _, row in group.iterrows():
                 hover_text += (
-                    f"Price: {format_value(row['Strike Price'])} | Value: {format_value(row[filter_type_str])}<br>"
+                    f"{format_value(row['Strike Price'])} | {format_value(row[filter_type_str])} | {row['Side']} | {format_date(row['Expiration Date'])}<br>"
                 )
         else:
             hover_text = "Connected Markers: N/A"
 
         # Add markers for each outlier
-        for i, row in group.iterrows():
-            # Determine marker color based on BlockTrade IDs
+        for _, row in group.iterrows():
+            # Find the position of this row in outliers (positional index)
+            outlier_pos = row.name  # After reset_index, .name is the position
             marker_color = 'red' if pd.notnull(row['BlockTrade IDs']) else 'yellow'
             
             fig.add_trace(go.Scatter(
@@ -763,16 +792,18 @@ def plot_identified_whale_trades(df, min_size=5, max_size=50, min_opacity=0.3, m
                 y=[row['Strike Price']],
                 mode='markers',
                 marker=dict(
-                    size=marker_sizes[i],  # Use scaled marker size
+                    size=marker_sizes[outlier_pos],  # Use scaled marker size
                     color=marker_color,
-                    opacity=marker_opacities[i],  # Use scaled opacity
+                    opacity=marker_opacities[outlier_pos],  # Use scaled opacity
                     line=dict(color='black', width=1)  # Remove stroke around markers
                 ),
                 name=f"Strike: {row['Strike Price']}",
                 hovertemplate=(
                     f"Entry Date: {row['Entry Date']}<br>"
+                    f"Expiration Date: {row['Expiration Date']}<br>"
                     f"Strike Price: {format_value(row['Strike Price'])}<br>"
-                    f"Value: {format_value(row[filter_type_str])}<br>"
+                    f"{filter_type}: {format_value(row[filter_type_str])}<br>"
+                    f"Side: {row['Side']}<br><br>"
                     f"{hover_text}<extra></extra>"
                 )
             ))
@@ -791,7 +822,6 @@ def plot_identified_whale_trades(df, min_size=5, max_size=50, min_opacity=0.3, m
     # Return the filtered DataFrame and the figure
     return outliers, fig
 
-
 def plot_expiration_profit(strategy_data, chart_type, trade_option_details):
     
     # Determine the minimum and maximum strike prices
@@ -805,10 +835,17 @@ def plot_expiration_profit(strategy_data, chart_type, trade_option_details):
 
     for i, position in strategy_data.iterrows():
         # Extract necessary data for profit calculation
-
         if chart_type == "Trade":
-            trade_direction = trade_option_details[0]
-            trade_qty = trade_option_details[1]
+
+            if 'Side' in strategy_data.columns:
+                trade_direction = strategy_data['Side'].iloc[i]
+            else:
+                trade_direction = trade_option_details[0]
+                
+            if 'Size' in strategy_data.columns:
+                trade_qty = strategy_data['Size'].iloc[i]
+            else:
+                trade_qty = trade_option_details[1]
             if trade_direction == "Buy":
                 position_value = position['Ask Price (USD)']
             else:
@@ -933,8 +970,17 @@ def plot_all_days_profits(group , chart_type , trade_option_details):
             time_to_expiration_years = max(time_to_expiration_days.total_seconds() / (365 * 24 * 3600), 0.0001)
 
             if chart_type == "Trade" : 
-                trade_direction = trade_option_details[0]
-                trade_qty = trade_option_details[1]
+                
+                if 'Side' in group.columns:
+                    trade_direction = group['Side'].iloc[i]
+                else:
+                    trade_direction = trade_option_details[0]
+                
+                if 'Size' in group.columns:
+                    trade_qty = group['Size'].iloc[i]
+                else:
+                    trade_qty = trade_option_details[1]
+
                 if trade_direction == "Buy" : 
                     IV_str = 'Ask IV' 
                     position_price = position['Ask Price (USD)'] 
@@ -954,7 +1000,7 @@ def plot_all_days_profits(group , chart_type , trade_option_details):
 
             future_iv = position[IV_str] / 100
             risk_free_rate = 0.0  # Example risk-free rate
-
+            
             profits = analytics.calculate_public_profits(
                 (index_price_range, trade_direction, position['Strike Price'], position_price, 
                  position_size , time_to_expiration_years, risk_free_rate, future_iv, position['Option Type'].lower())
@@ -987,6 +1033,8 @@ def plot_all_days_profits(group , chart_type , trade_option_details):
             x=index_price_range,
             y=profit_over_days[day],
             mode='lines',
+            name=f"Day {day}",
+            showlegend=True,
             hovertemplate=(
                 "%{text}<br>"  # Add number of days to expiration
                 "Underlying Price: %{customdata[0]}<br>"  # Use custom data for formatted x-axis value
@@ -1009,7 +1057,7 @@ def plot_all_days_profits(group , chart_type , trade_option_details):
     fig_profit.update_layout(
         xaxis_title='Underlying Price',
         yaxis_title='Profit',
-        showlegend=False
+        showlegend=True
     )
 
     return fig_profit
@@ -1151,9 +1199,9 @@ def plot_hourly_activity(hourly_activity):
 
     fig.add_trace(go.Bar(
         x=hourly_activity.index,  # Assuming the index contains the hours
-        y=hourly_activity['Total Size']['sum'],  # Replace 'activity' with the actual column name if different
+        y=hourly_activity['Total Size']['sum'],  
         marker=dict(color='skyblue'),  # Set the color of the bars to sky blue
-        hoverinfo='y',  # Show x and y values on hover
+        hoverinfo='y',  
       ))
 
     # Update layout
@@ -1167,3 +1215,5 @@ def plot_hourly_activity(hourly_activity):
     )
 
     return fig
+
+
