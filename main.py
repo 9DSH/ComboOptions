@@ -152,7 +152,7 @@ def app():
                 market_screener_df.dropna(subset=['Entry Date', 'Underlying Price'], inplace=True)
                 filter_row = st.container()
                 with filter_row:
-                    col_date,col_vertical_1, col_strike_size_range, col_vertical_2,  col_expiration, col_vertical_3, col_side_type = st.columns([0.3, 0.01, 0.3, 0.01, 0.3, 0.01, 0.1])
+                    col_date,col_vertical_1, col_strike_size_range, col_vertical_2,  col_expiration, col_vertical_3, col_side_type = st.columns([0.3, 0.01, 0.2, 0.01, 0.3, 0.01, 0.1])
                     #with col_refresh: 
                         #apply_market_filter = st.button(label="Apply", key="apply_market_filter")
 
