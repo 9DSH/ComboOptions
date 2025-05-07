@@ -292,7 +292,7 @@ class DeribitAPI:
         # Calculate additional columns
         public_trades_df['Price (USD)'] = (public_trades_df['price'] * public_trades_df['index_price']).round(2)
         public_trades_df['Entry Value'] = (public_trades_df['amount'] * public_trades_df['Price (USD)']).round(2)
-       
+        
         # Rename the columns as per the requirements
         columns = {
             'timestamp': 'Entry Date',
@@ -312,6 +312,7 @@ class DeribitAPI:
         }
         
         public_trades_df.rename(columns=columns, inplace=True)
+        
 
         # Ensure correct order of columns
         new_order = [
@@ -320,7 +321,7 @@ class DeribitAPI:
             'Expiration Date', 'Strike Price', 'Option Type', 'Entry Date','BlockTrade IDs',
             'BlockTrade Count', 'Combo ID', 'ComboTrade IDs' , 'Trade ID'
         ]
-
+        
         public_trades_df = public_trades_df[new_order]
 
         # Read existing data from CSV

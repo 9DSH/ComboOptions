@@ -144,6 +144,7 @@ def app():
     with main_tabs[0]: 
              # Initialize trades variable outside of any if conditions
             market_screener_df = fetch_data.load_market_trades( filter=None , drop = False ,show_24h_public_trades = show_24h_public_trades)
+            #market_screener_df =   fetch_data.validate_datatable(market_screener_df_raw, "Public")
             total_number_public_trade = market_screener_df.shape[0]
             
             # here we can have the function that simulates the public trades profit
@@ -527,6 +528,8 @@ def app():
                                     strategy_data = group.copy()
                                     
                                     # Calculate profits using multithreading
+                                    
+                                    #strategy_data_df =   fetch_data.validate_datatable(strategy_data , "Public")
                                     fig_profit, fig_strategy = plot_public_profits(strategy_data, "Public", trade_option_details=None)
                                     
                                     with chart_col1:
@@ -587,7 +590,8 @@ def app():
                                     if selected_index is not None:
                                             # Filter the raw data for the selected index
                                             selected_option_data = filtered_df.loc[[selected_index]]
-
+                                            
+                                            #selected_option_data =   fetch_data.validate_datatable(selected_option_data_raw , "Public")
                                             # Calculate profits using the existing function
                                             fig_public_profit, fig_public_strategy = plot_public_profits(selected_option_data, "Public", trade_option_details=None)
 
@@ -730,6 +734,8 @@ def app():
                         all_options_with_details = fetch_data.get_all_options(filter=None, type='data')
                         
                         recent_public_trades_df = fetch_data.load_market_trades(filter= option_symbol , show_24h_public_trades = show_24h_public_trades)
+                        
+                        #recent_public_trades_df =   fetch_data.validate_datatable(recent_public_trades_df_raw, "Public")
                         if not option_details.empty:
                                 # Extracting details safely
                                 
@@ -838,6 +844,8 @@ def app():
                         st.plotly_chart(open_by_expiration_radar)
                     
                     st.markdown("---")
+
+                #option_details =   fetch_data.validate_datatable(option_details, "Trade")
                 profit_fig , expiration_profit = plot_public_profits(option_details , "Trade", trade_option_detail)
                 
                 chart_col_1, chart_col_2 = st.columns(2)
@@ -976,6 +984,7 @@ def app():
                         if apply_simlutaion:
                             sim_strategy_data = pd.concat(option_details_list, ignore_index=True)
                             # Now you can use strategy_data with plot_public_profits
+                            #sim_strategy_data =  fetch_data.validate_datatable(sim_strategy_data_raw, "Trade")
                             sim_fig_profit, sim_fig_strategy = plot_public_profits(sim_strategy_data, "Trade", trade_option_details=None)
                             sim_col1,sim_col2 = st.columns(2)
                             with sim_col1:
@@ -1027,6 +1036,7 @@ def app():
                     'IV (%)': [iv_percent],
                     'Price (USD)': [sim_price_usd]
                 })
+                #simulation_details =  fetch_data.validate_datatable(simulation_details_raw, "Trade")
                 profit_fig_sim , expiration_profit_sim = plot_public_profits(simulation_details , "Public", trade_option_detail)
 
                 

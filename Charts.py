@@ -257,7 +257,7 @@ def plot_stacked_calls_puts(df):
         Buy_Total=('Side', lambda x: (x == 'BUY').sum()),   # Total Buys
         Sell_Total=('Side', lambda x: (x == 'SELL').sum())  # Total Sells
     ).unstack(fill_value=0)  # Unstack the DataFrame for clarity
-    
+
     # Flatten the MultiIndex in the columns
     grouped_data.columns = ['_'.join(col).strip() for col in grouped_data.columns.values]
 
@@ -265,7 +265,10 @@ def plot_stacked_calls_puts(df):
     grouped_data['Total_Calls'] = grouped_data.get('Buy_Total_Call', 0) + grouped_data.get('Sell_Total_Call', 0)
     grouped_data['Total_Puts'] = grouped_data.get('Buy_Total_Put', 0) + grouped_data.get('Sell_Total_Put', 0)
 
-    # Create custom data for hover display
+    # Calculate total trades for percentage calculations
+    total_trades = len(df)
+
+    # Create custom data for hover display, calculating distributions
     customdata = []
     for index, row in grouped_data.iterrows():
         buy_calls_total = row.get('Buy_Total_Call', 0)
@@ -273,15 +276,15 @@ def plot_stacked_calls_puts(df):
         buy_puts_total = row.get('Buy_Total_Put', 0)
         sell_puts_total = row.get('Sell_Total_Put', 0)
 
-        customdata.append([
-            buy_calls_total, 
-            sell_calls_total, 
-            buy_puts_total, 
+        customdata.append([ 
+            buy_calls_total,
+            sell_calls_total,
+            buy_puts_total,
             sell_puts_total,
-            (buy_calls_total / row['Total_Calls'] * 100) if row['Total_Calls'] > 0 else 0,
-            (sell_calls_total / row['Total_Calls'] * 100) if row['Total_Calls'] > 0 else 0,
-            (buy_puts_total / row['Total_Puts'] * 100) if row['Total_Puts'] > 0 else 0,
-            (sell_puts_total / row['Total_Puts'] * 100) if row['Total_Puts'] > 0 else 0,
+            (buy_calls_total / total_trades * 100),
+            (sell_calls_total / total_trades * 100),
+            (buy_puts_total / total_trades * 100),
+            (sell_puts_total / total_trades * 100),
         ])
 
     customdata = pd.DataFrame(customdata).values
@@ -320,7 +323,7 @@ def plot_stacked_calls_puts(df):
                     "Buy Calls: %{customdata[0]} (%{customdata[4]:.2f}%)<br>" +
                     "Sell Calls: %{customdata[1]} (%{customdata[5]:.2f}%)<br>" +
                     "Buy Puts: %{customdata[2]} (%{customdata[6]:.2f}%)<br>" +
-                    "Sell Puts: %{customdata[3]} (%{customdata[7]:.2f}%)<br>"
+                    "Sell Puts: %{customdata[3]} (%{customdata[7]:.2f}%)<br>" 
                 ),
                 customdata=customdata
             ))
@@ -490,20 +493,20 @@ def plot_public_profit_sums(summed_df):
 def plot_most_traded_instruments(most_traded):
     """
     Plots a pie chart of the most traded instruments with hover info showing
-    total size, buy, and sell counts, each clearly displayed.
+    total trade counts, buy, and sell counts, each clearly displayed.
     """
     # Create hover text to display buy and sell portions clearly
     most_traded['hover_text'] = (
         "Instrument: " + most_traded['Instrument'] + "<br>" +
-        "Total Size: " + most_traded['Size'].astype(int).astype(str) + "<br>" +  # No decimal
-        "Buy Contracts: " + most_traded['BUY'].astype(str) + " - " + ((most_traded['BUY'] / (most_traded['SELL']+most_traded['BUY'] )) * 100).round(2).astype(str) + "%" + "<br>" +
-        "Sell Contracts: " + most_traded['SELL'].astype(str) + " - " + ((most_traded['SELL'] / (most_traded['SELL']+most_traded['BUY'] )) * 100).round(2).astype(str) + "%" 
+        "Total Trades: " + most_traded['Trade Count'].astype(int).astype(str) + "<br>" +  # Total trade count
+        "Buy Contracts: " + most_traded['BUY'].astype(str) + " - " + ((most_traded['BUY'] / (most_traded['SELL'] + most_traded['BUY'])) * 100).round(2).astype(str) + "%" + "<br>" +  # Buy percentage
+        "Sell Contracts: " + most_traded['SELL'].astype(str) + " - " + ((most_traded['SELL'] / (most_traded['SELL'] + most_traded['BUY'])) * 100).round(2).astype(str) + "%"  # Sell percentage
     )
 
     # Create a pie chart using Plotly
     fig = go.Figure(data=[go.Pie(
         labels=most_traded['Instrument'],
-        values=most_traded['Size'],
+        values=most_traded['Trade Count'],  # Use the count of trades as the values for the pie chart
         hole=0.6,
         hoverinfo='text',
         textinfo='value+percent+label',
@@ -512,10 +515,10 @@ def plot_most_traded_instruments(most_traded):
 
     # Update the layout of the chart
     fig.update_layout(
-        title_text='Top 10 Most Traded Instruments by Contracts',
+        title_text='Top 10 Most Traded Instruments by Trade Count',
         title_font_size=24
     )
-    
+
     return fig
 
 def plot_underlying_price_vs_entry_value(df, custom_price=None, custom_entry_value=None):
@@ -1065,6 +1068,7 @@ def plot_all_days_profits(group , chart_type , trade_option_details):
 
 def plot_public_profits(strategy_data , chart_type , trade_option_details):
                                 # Calculate profits using multithreading
+                        
     with ThreadPoolExecutor() as executor:
         future_all_days_profits = executor.submit(plot_all_days_profits, strategy_data , chart_type , trade_option_details)
         future_strategy_profit = executor.submit(plot_expiration_profit, strategy_data, chart_type , trade_option_details)

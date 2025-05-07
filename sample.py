@@ -1,56 +1,88 @@
 from Fetch_data import Fetching_data
-from datetime import datetime , timedelta
-
-import plotly.graph_objects as go
 import pandas as pd
 
-fetch_data = Fetching_data()
+fetch =Fetching_data()
+options_ = fetch.fetch_option_data()
+raw_df = fetch.load_market_trades(filter=None, drop = None, show_24h_public_trades=False)
+print(raw_df.shape)
+def validate_and_convert_df(df, data_type="Public"):
+    # Define the desired data types for each column based on data_type
+    if data_type == "Public":
+        desired_dtypes = {
+            'Side': 'object',
+            'Instrument': 'object',
+            'Price (BTC)': 'float64',
+            'Price (USD)': 'float64',
+            'Mark Price (BTC)': 'float64',
+            'IV (%)': 'float64',
+            'Size': 'float64',
+            'Entry Value': 'float64',
+            'Underlying Price': 'float64',
+            'Expiration Date': 'object',
+            'Strike Price': 'float64',
+            'Option Type': 'object',
+            'Entry Date': 'datetime64[ns]',
+            'BlockTrade IDs': 'object',
+            'BlockTrade Count': 'float64',
+            'Combo ID': 'object',
+            'ComboTrade IDs': 'float64',
+            'Trade ID': 'float64'
+        }
+    elif data_type == "Trade":
+        desired_dtypes = {
+            'Instrument': 'object',
+            'Option Type': 'object',
+            'Strike Price': 'float64',
+            'Expiration Date': 'object',
+            'Last Price (USD)': 'float64',
+            'Bid Price (USD)': 'float64',
+            'Ask Price (USD)': 'float64',
+            'Bid IV': 'float64',
+            'Ask IV': 'float64',
+            'Delta': 'float64',
+            'Gamma': 'float64',
+            'Theta': 'float64',
+            'Vega': 'float64',
+            'open_interest': 'float64',
+            'total traded volume': 'float64',
+            'monetary volume': 'float64'
+        }
+    else:
+        raise ValueError("Invalid data_type. Expected 'Public' or 'Trade'.")
 
-fetch_data.load_from_csv(data_type="options_screener")
-df = fetch_data.options_screener
-
-def remove_expired_trades(df):
-        """
-        Remove rows from the DataFrame where the 'Expiration Date' is before the current date.
-        If the current time is 8:00 UTC, also remove trades that expired yesterday.
-        Print the number of expired trades removed and return the filtered DataFrame.
-        """
-        # Convert 'Expiration Date' to datetime if it's not already
+    # Iterate over the columns and convert data types
+    for column, dtype in desired_dtypes.items():
+        if column in df.columns:
+            # Convert the column to the desired data type
+            try:
+                df[column] = df[column].astype(dtype)
+            except ValueError:
+                print(f"Warning: Could not convert column {column} to {dtype}.")
         
-        df['Expiration Date'] = pd.to_datetime(df['Expiration Date'], format='%d-%b-%y', errors='coerce')
+        # Check for None or NaN values
+        if df[column].isnull().any():
+            print(f"Warning: Column {column} contains None or NaN values.")
+    
+    # Drop rows with incorrect data types
+    for column, dtype in desired_dtypes.items():
+        if column in df.columns:
+            # Check each value in the column
+            for index, value in df[column].items():
+                try:
+                    # Attempt to convert the value to the desired type
+                    if dtype == 'object':
+                        str(value)  # Ensure it can be converted to string
+                    elif dtype == 'datetime64[ns]':
+                        pd.to_datetime(value)  # Ensure it can be converted to datetime
+                    else:
+                        float(value)  # Ensure it can be converted to float
+                except (ValueError, TypeError):
+                    # Drop the row if conversion fails
+                    df.drop(index, inplace=True)
+                    print(f"Dropped row {index} due to invalid data type in column {column}.")
+    
+    return df
 
-        # Get the current date and time in UTC
-        current_utc_datetime = datetime.utcnow() 
-        print("currecnt date:" , current_utc_datetime)
-        # Determine the cutoff date for expiration
-        if current_utc_datetime.hour >= 8:
-            # If it's 8:00 UTC or more, consider trades expired if they expired yesterday
-            cutoff_date = pd.to_datetime((current_utc_datetime + timedelta(days=2)).date()).replace(hour=8, minute=0, second=0)
-        else:
-            # Otherwise, consider trades expired if they expired before today
-            cutoff_date = pd.to_datetime(current_utc_datetime.date()).replace(hour=8, minute=0, second=0)
-        # Filter out expired trades
-        print(cutoff_date)
-        expired_trades = df[df['Expiration Date'] < cutoff_date]
-        num_expired_trades = expired_trades.shape[0]
-        print(expired_trades)
-        # Drop expired trades from the DataFrame
-        df = df[df['Expiration Date'] >= cutoff_date]
-
-        # Print the number of expired trades
-        print(f"{num_expired_trades} trades are expired.")
-
-        return df
-# Drop rows with duplicate Trade IDs, keeping only the first occurrence
-# Create a DataFrame with 'Price' and 'Expiration Date' columns
-data = {
-    'Price': [100 + i for i in range(20)],  # Example prices from 100 to 119
-    'Expiration Date': [datetime.now() + timedelta(days=i) for i in range(20)]  # Expiration dates from today onwards
-}
-
-df_generated = pd.DataFrame(data)
-print(df_generated.head(10))  # Print the first 10 rows of the generated DataFrame
-
-copy_df = remove_expired_trades(df_generated )
-print(copy_df.head(10))
-
+filter_df = validate_and_convert_df(raw_df)
+print(filter_df.shape)
+print(filter_df)

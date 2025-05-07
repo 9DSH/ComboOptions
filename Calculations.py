@@ -198,6 +198,7 @@ def calculate_totals_for_options(df):
             - total_entry_values (float): Total entry values from the 'Entry Value' column.
     """
     total_options = df.shape[0]  # Total number of rows
+
     total_amount = df['Size'].sum() if 'Size' in df.columns else 0  # Total size from 'Size' column
     
     if 'Entry Value' in df.columns:
@@ -215,11 +216,11 @@ def get_most_traded_instruments(df):
     Returns the ten most traded instruments, their total sizes, and counts of BUY and SELL orders
     as a combined DataFrame.
     """
-    # Group by 'Instrument' and sum the 'Size'
-    grouped_data = df.groupby('Instrument')['Size'].sum().reset_index()
+    # Group by 'Instrument' and count the number of trades
+    trade_counts = df.groupby('Instrument').size().reset_index(name='Trade Count')
     
-    # Sort the DataFrame by total size in descending order and select the top 10
-    most_traded = grouped_data.sort_values(by='Size', ascending=False).head(10)
+    # Sort the DataFrame by trade count in descending order and select the top 10
+    most_traded = trade_counts.sort_values(by='Trade Count', ascending=False).head(10)
     
     # Count the BUY and SELL occurrences for the most traded instruments
     buy_sell_counts = df[df['Instrument'].isin(most_traded['Instrument'])].groupby(['Instrument', 'Side']).size().unstack(fill_value=0)
