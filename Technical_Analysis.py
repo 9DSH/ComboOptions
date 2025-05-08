@@ -99,8 +99,8 @@ class TechnicalAnalysis:
         current_price = df['close'].iloc[-1]
 
         # Define the range for nearby price actions using unique_price_actions
-        lower_bound = current_price - 2000
-        upper_bound = current_price + 2000
+        lower_bound = current_price - 3000
+        upper_bound = current_price + 3000
 
         # Get nearby price actions within the defined range using unique_price_actions
         nearby_priceactions = unique_price_actions[(unique_price_actions >= lower_bound) & (unique_price_actions <= upper_bound)].tolist()
@@ -110,8 +110,8 @@ class TechnicalAnalysis:
         support = [price for price in nearby_priceactions if price < current_price]
         
             # Limit resistance and support lists to a maximum of 3 values each
-        resistance = sorted(resistance, reverse=True)[:3]  # Take the top 3 greater values
-        support = sorted(support)[:3]  # Take the top 3 lesser values
+        resistance = sorted(resistance, reverse=False)[:3]  # Take the top 3 greater values
+        support = sorted(support, reverse=False)[:3]  # Take the top 3 lesser values in reverse order
 
         # Return the insights as a dictionary
         return {
@@ -409,10 +409,10 @@ class TechnicalAnalysis:
         )
         
         # Initialize a trend Series with "neutral"
-        trend_series = pd.Series("neutral", index=df.index)
+        trend_series = pd.Series("Neutral", index=df.index)
 
         # Apply conditions
-        trend_series[conditions_bullish] = "bullish"
-        trend_series[conditions_bearish] = "bearish"
+        trend_series[conditions_bullish] = "Bullish"
+        trend_series[conditions_bearish] = "Bearish"
 
         return trend_series

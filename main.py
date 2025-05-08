@@ -56,6 +56,12 @@ if 'technical_4h' not in st.session_state:
 if 'technical_daily' not in st.session_state:
     st.session_state.technical_daily = None
 
+
+    
+if 'most_profitable_df' not in st.session_state:
+    st.session_state.most_profitable_df = pd.DataFrame()  # Initialize with an empty DataFrame
+
+
 def technical_analysis():
     if st.session_state.technical_4h is None:
         analytics_insight_4h = technical_4h.get_technical_data()
@@ -76,20 +82,27 @@ def app():
     start_data_refresh_thread()
     #chat.display_chat()
     
-    if 'most_profitable_df' not in st.session_state:
-        st.session_state.most_profitable_df = pd.DataFrame()  # Initialize with an empty DataFrame
+    technical_analysis()
+    
+    currency = 'BTC'
+    premium_buy = 0
+    premium_sell = 0
 
-    combo_breakeven_sell = None
-    combo_breakeven_buy = None
-    title_row = st.container()
-    # Fetch and display the current price
+   
+    #-----------------------------------------------------------------
+    #-------------------------- Technical Bar -----------------------
+    #------------------------------------------------------------
+     # Fetch and display the current price
     btc_price , highest, lowest = get_btcusd_price()
+
+    title_row = st.container()
     with title_row:
-        col1, col2, col3 = st.columns([1, 5,0.5])  # Adjust ratio for centering
+        
+        col1, Technical_bar_column, col3 = st.columns([1, 5, 0.5])  # Adjust ratio for centering
         with col1:
             show_24h_public_trades = st.checkbox("Show 24h Public Trades", value=True)
             
-        with col2:
+        with Technical_bar_column:
             technical_daily_row1 = st.container()
             technical_4h_row2 = st.container()
             
@@ -103,20 +116,21 @@ def app():
 
             if st.session_state.technical_4h is not None:
                 _4h_support_list = st.session_state.technical_4h.get("support", 'Key not found')
-                _4h_resistance_list = st.session_state.technical_4h.get("resistance", 'Key not found')        
+                _4h_resistance_list = st.session_state.technical_4h.get("resistance", 'Key not found')  
+                _4h_trend = st.session_state.technical_4h.get("last_predicted_trend", 'Key not found')      
             else:
                 _4h_support_list = None  
                 _4h_resistance_list  = None    
                 print('technical_daily is None')
                     
-            daily_support_1, daily_support_2, daily_support_3 = (daily_support_list + [None, None, None])[:3]
+            daily_support_1, daily_support_2 , daily_support_3 = (daily_support_list + [None, None, None])[:3]
             daily_resistance_1, daily_resistance_2, daily_resistance_3 = (daily_resistance_list + [None, None, None])[:3]
 
             support_4h_1, support_4h_2, support_4h_3 = (_4h_support_list + [None, None, None])[:3]
             resistance_4h_1, resistance_4h_2, resistance_4h_3 = (_4h_resistance_list + [None, None, None])[:3]
             
             
-            support_title_col , support_col1, support_col2,  support_col3,  price_col, resistance_col1, resistance_col2,  resistance_col3 , res_title_col= st.columns([1,1,1,1,1,1,1,1,1])
+            support_title_col , support_col1, support_col2,  support_col3,  lowest_col , price_col, highest_col, resistance_col1, resistance_col2,  resistance_col3 , res_title_col= st.columns([1,1,1,1,1,1,1,1,1,1,1])
 
             with technical_daily_row1 : 
                 with support_title_col : 
@@ -148,7 +162,6 @@ def app():
 
 
             with  technical_4h_row2 :
-                
                 with support_title_col : 
                     st.markdown(f"<div style='font-size: 12px; color: gray;text-align: center;'>Supports (4H)</div>", unsafe_allow_html=True)
                 with support_col1:
@@ -165,49 +178,69 @@ def app():
                 with resistance_col3:
                     st.markdown(f"<div style='font-size: 12px; color: white;text-align: center;'>{resistance_4h_3:.0f}</div>" if isinstance(resistance_4h_3, float) else "", unsafe_allow_html=True)
                 with res_title_col:
-                    
                     st.markdown(f"<div style='font-size: 12px; color: gray;text-align: center;'>Resistances (4H)</div>", unsafe_allow_html=True)
-            with price_col : 
-                highest_row = st.container()
-                price_row = st.container()
-                lowest_row = st.container()
 
-                with highest_row:
-                    
-                    st.markdown(f"<div style='font-size: 14px; color: #90EE90;text-align: center;'>{highest}</div>", unsafe_allow_html=True)
-                with price_row: 
+            with lowest_col:
+                lowest_row_1= st.container()
+                lowest_row_2 = st.container()
+                lowest_row_3  = st.container()
+                with lowest_row_1:
+                    st.write("")
+                with lowest_row_2:
+                    st.markdown(f"<div style='font-size: 12px; color: gray;text-align: center;'>Lowest</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='font-size: 14px;color: #f54b4b;text-align: center; '>{lowest}</div>", unsafe_allow_html=True)
+                with lowest_row_3:
+                    st.write("")
+
+            with price_col : 
+                price_row_1 = st.container()
+                price_row_2 = st.container()
+                price_row_3 = st.container()
+                
+                with price_row_1:
+                    if _4h_trend == "Neutral":
+                        textcolor = "white"
+                    elif _4h_trend == "Bullish":
+                        textcolor = "#90EE90"
+                    elif _4h_trend == "Bearish":
+                        textcolor = "#f54b4b"
+                    else:
+                        textcolor = "white"  # Default color if _4h_trend is None or any other value
+                    st.markdown(f"<div style='font-size: 14px; color:{textcolor}; text-align: center; letter-spacing: 2px;'>{_4h_trend}</div>", unsafe_allow_html=True)
+                with price_row_2: 
                 
                     btc_display_price = f"{btc_price:.0f}" if btc_price is not None else "Loading..."
                     st.markdown(f"<div style='font-size: 25px;text-align: center;'>{btc_display_price}</div>", unsafe_allow_html=True)
-                with lowest_row:
-                    
-                    st.markdown(f"<div style='font-size: 14px;color: #f54b4b;text-align: center; '>{lowest}</div>", unsafe_allow_html=True)
+                with price_row_3:
+                    st.write("")
             
+            with highest_col:
+                highest_row_1 = st.container()
+                highest_row_2 = st.container()
+                highest_row_3 = st.container()
+                with highest_row_1:
+                    st.write("")
+                with highest_row_2:
+                    st.markdown(f"<div style='font-size: 12px; color: gray;text-align: center;'>Highest</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='font-size: 14px; color: #90EE90;text-align: center;'>{highest}</div>", unsafe_allow_html=True)
             
+                with highest_row_3 :
+                    st.write("")
+
                 
         with col3:
             current_utc_time = datetime.now(timezone.utc).strftime("%H:%M:%S")
             st.markdown(f"<div style='font-size: 12px; text-align: center;'>UTC Time</div><div style='font-size: 16px; color: gray;text-align: center;'>{current_utc_time}</div>", unsafe_allow_html=True)
             
-            
-
-                
-
-
-
-
-    # Initialize data fetching at the start of the app
-    # Button to refresh data
-    
-
-    premium_buy = 0
-    premium_sell = 0
-
-    currency = 'BTC'
+   
+       
         #current_date_initials = pd.to_datetime(datetime.now()).date()
 
         
         # Initialize session state for inputs if they don't exist
+    
+    #------------------------------------------------------------------
+    #-----------------------------------------------------------------
     if 'selected_date' not in st.session_state:
         default_date = (datetime.now() + timedelta(days=1)).date()
         st.session_state.selected_date = default_date
@@ -1280,7 +1313,6 @@ if __name__ == "__main__":
         # We are already running under "streamlit run" – proceed with your app.
         # Start the background thread once (if not already started).
         # Now call your app() function to render the Streamlit interface.
-        technical_analysis()
         app()
         
     

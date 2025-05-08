@@ -7,4 +7,4 @@ data_4h = ta_4h.get_technical_data()
 data = ta_daily.get_technical_data()
 print(data_4h)
 
-print(data_4h['nearby_priceaction'])
+print(data_4h['last_predicted_trend'])
