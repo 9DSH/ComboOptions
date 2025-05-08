@@ -85,7 +85,7 @@ def app():
     # Fetch and display the current price
     btc_price , highest, lowest = get_btcusd_price()
     with title_row:
-        col1, col2, col3 = st.columns([1, 5, 1])  # Adjust ratio for centering
+        col1, col2, col3 = st.columns([1, 5,0.5])  # Adjust ratio for centering
         with col1:
             show_24h_public_trades = st.checkbox("Show 24h Public Trades", value=True)
             
@@ -120,7 +120,7 @@ def app():
 
             with technical_daily_row1 : 
                 with support_title_col : 
-                    st.markdown(f"<div style='font-size: 12px; color: gray;text-align: center;'>Daily Supports</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='font-size: 12px; color: gray;text-align: center;'>Supports (D)</div>", unsafe_allow_html=True)
                     st.markdown("<hr style='margin: 10px;'>", unsafe_allow_html=True) 
                 with support_col1:
                     st.markdown(f"<div style='font-size: 12px; color: white; text-align: center;'>{daily_support_1:.0f}</div>" if isinstance(daily_support_1, float) else "", unsafe_allow_html=True)
@@ -143,14 +143,14 @@ def app():
                     st.markdown("<hr style='margin: 10px;'>", unsafe_allow_html=True) 
                 with res_title_col:
                     
-                    st.markdown(f"<div style='font-size: 12px; color: gray;text-align: center;'>Daily Resistances</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='font-size: 12px; color: gray;text-align: center;'>Resistances (D)</div>", unsafe_allow_html=True)
                     st.markdown("<hr style='margin: 10px;'>", unsafe_allow_html=True) 
 
 
             with  technical_4h_row2 :
                 
                 with support_title_col : 
-                    st.markdown(f"<div style='font-size: 12px; color: gray;text-align: center;'>4 Hour Supports</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='font-size: 12px; color: gray;text-align: center;'>Supports (4H)</div>", unsafe_allow_html=True)
                 with support_col1:
                     st.markdown(f"<div style='font-size: 12px; color: white;text-align: center;'>{support_4h_1:.0f}</div>" if isinstance(support_4h_1, float) else "", unsafe_allow_html=True)
                 with support_col2:
@@ -166,7 +166,7 @@ def app():
                     st.markdown(f"<div style='font-size: 12px; color: white;text-align: center;'>{resistance_4h_3:.0f}</div>" if isinstance(resistance_4h_3, float) else "", unsafe_allow_html=True)
                 with res_title_col:
                     
-                    st.markdown(f"<div style='font-size: 12px; color: gray;text-align: center;'>4 Hours Resistances</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='font-size: 12px; color: gray;text-align: center;'>Resistances (4H)</div>", unsafe_allow_html=True)
             with price_col : 
                 highest_row = st.container()
                 price_row = st.container()
@@ -186,10 +186,8 @@ def app():
             
                 
         with col3:
-            colmm1, colmm2 , colmm3= st.columns([2,2,2])
-            with colmm3:
-                current_utc_time = datetime.now(timezone.utc).strftime("%H:%M:%S")
-                st.markdown(f"<div style='font-size: 12px; '>UTC Time</div><div style='font-size: 16px; color: gray;'>{current_utc_time}</div>", unsafe_allow_html=True)
+            current_utc_time = datetime.now(timezone.utc).strftime("%H:%M:%S")
+            st.markdown(f"<div style='font-size: 12px; text-align: center;'>UTC Time</div><div style='font-size: 16px; color: gray;text-align: center;'>{current_utc_time}</div>", unsafe_allow_html=True)
             
             
 
