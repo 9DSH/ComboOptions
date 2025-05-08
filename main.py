@@ -47,42 +47,15 @@ data_refresh_thread = None
 public_trades_thread = None
 
 
-if 'data_refresh_thread' not in st.session_state:
-    st.session_state.data_refresh_thread = None
-
-if 'technical_4h' not in st.session_state:
-    st.session_state.technical_4h = None
-
-if 'technical_daily' not in st.session_state:
-    st.session_state.technical_daily = None
-
-
-    
-if 'most_profitable_df' not in st.session_state:
-    st.session_state.most_profitable_df = pd.DataFrame()  # Initialize with an empty DataFrame
-
-
-def technical_analysis():
-    if st.session_state.technical_4h is None:
-        analytics_insight_4h = technical_4h.get_technical_data()
-        st.session_state.technical_4h  = analytics_insight_4h
-
-    if st.session_state.technical_daily is None:
-        analytics_insight_daily = technical_daily.get_technical_data()
-        st.session_state.technical_daily = analytics_insight_daily 
-
-
-def start_data_refresh_thread():
-    if st.session_state.data_refresh_thread is None or not st.session_state.data_refresh_thread.is_alive():
-        st.session_state.data_refresh_thread = threading.Thread(target=start_fetching_data_from_api)
-        st.session_state.data_refresh_thread.start()  # Start the background thread
 
 
 def app():
+
+    initializing_states()
     start_data_refresh_thread()
-    #chat.display_chat()
-    
+    update_public_trades()
     technical_analysis()
+    #chat.display_chat()
     
     currency = 'BTC'
     premium_buy = 0
@@ -90,18 +63,15 @@ def app():
 
    
     #-----------------------------------------------------------------
-    #-------------------------- Technical Bar -----------------------
-    #------------------------------------------------------------
+    #-------------------------- Technical Bar ------------------------
+    #-----------------------------------------------------------------
      # Fetch and display the current price
     btc_price , highest, lowest = get_btcusd_price()
 
     title_row = st.container()
     with title_row:
         
-        col1, Technical_bar_column, col3 = st.columns([1, 5, 0.5])  # Adjust ratio for centering
-        with col1:
-            show_24h_public_trades = st.checkbox("Show 24h Public Trades", value=True)
-            
+        padding_colomn , Technical_bar_column, col3 = st.columns([0.5, 5, 0.5])  # Adjust ratio for centering
         with Technical_bar_column:
             technical_daily_row1 = st.container()
             technical_4h_row2 = st.container()
@@ -239,34 +209,19 @@ def app():
         
         # Initialize session state for inputs if they don't exist
     
-    #------------------------------------------------------------------
+
+    ##---------------------------------------------------------------
+    ##------------------------- MAIN TABS ---------------------------
     #-----------------------------------------------------------------
-    if 'selected_date' not in st.session_state:
-        default_date = (datetime.now() + timedelta(days=1)).date()
-        st.session_state.selected_date = default_date
-    if 'option_symbol' not in st.session_state:
-            st.session_state.option_symbol = None  # Initialize this as None or an empty value
-    if 'quantity' not in st.session_state:
-            st.session_state.quantity = 0.1  # Default quantity
-    if 'option_side' not in st.session_state:
-            st.session_state.option_side = "BUY"  # Default side
         
 
-
-
-
-    ##------------------------------------------------------
-    ##---------------------- MAIN TABS ------------------------
-    #-------------------------------------------------------
-        
-
-#---------------------------------------------------------------
-#-----------------------Market Watch ---------------------------
-#-------------------------------------------------------------
+#------------------------------------------------------------
+#-----------------------Market Watch ------------------
+#------------------------------------------------------------
     main_tabs = st.tabs(["Market Watch",  "Live Trade Option", "Simulation", "Hedge Fund" ])
     with main_tabs[0]: 
              # Initialize trades variable outside of any if conditions
-            market_screener_df = fetch_data.load_market_trades( filter=None , drop = False ,show_24h_public_trades = show_24h_public_trades)
+            market_screener_df = st.session_state.public_trades_df
             #market_screener_df =   fetch_data.validate_datatable(market_screener_df_raw, "Public")
             total_number_public_trade = market_screener_df.shape[0]
             
@@ -463,6 +418,13 @@ def app():
                                     st.markdown(f"<p style='font-size: 12px; color: gray;'> Total Values:</p>", unsafe_allow_html=True)
                                 with row_size:
                                     st.markdown(f"<p style='font-size: 17px;font-weight: bold;'> {total_entry_values:,.0f}</p>", unsafe_allow_html=True)
+                            with col5:
+                                st.checkbox(
+                                                                            "Show 24h Public Trades",
+                                                                            value=True,
+                                                                            key='show_24_public_trades',
+                                                                            on_change=update_public_trades
+                                                                        )
 
                         detail_column_2, detail_column_3 = st.columns(2)                       
 
@@ -856,7 +818,7 @@ def app():
                         option_details, option_index_price = fetch_data.fetch_option_data(option_symbol)
                         all_options_with_details = fetch_data.get_all_options(filter=None, type='data')
                         
-                        recent_public_trades_df = fetch_data.load_market_trades(filter= option_symbol , show_24h_public_trades = show_24h_public_trades)
+                        recent_public_trades_df = fetch_data.load_market_trades(filter= option_symbol , show_24h_public_trades = st.session_state.show_24_public_trades)
                         
                         #recent_public_trades_df =   fetch_data.validate_datatable(recent_public_trades_df_raw, "Public")
                         if not option_details.empty:
@@ -1298,6 +1260,60 @@ def style_combined_results(combined_results):
 
 
     return styled_df
+
+
+def initializing_states():
+    if 'data_refresh_thread' not in st.session_state:
+        st.session_state.data_refresh_thread = None
+
+    if 'technical_4h' not in st.session_state:
+        st.session_state.technical_4h = None
+
+    if 'technical_daily' not in st.session_state:
+        st.session_state.technical_daily = None
+
+    if 'show_24_public_trades' not in st.session_state:
+        st.session_state.show_24_public_trades = True
+
+    if 'most_profitable_df' not in st.session_state:
+        st.session_state.most_profitable_df = pd.DataFrame()  # Initialize with an empty DataFrame
+
+    if 'public_trades_df' not in st.session_state:
+        st.session_state.public_trades_df = None
+    
+    
+    if 'selected_date' not in st.session_state:
+        default_date = (datetime.now() + timedelta(days=1)).date()
+        st.session_state.selected_date = default_date
+    if 'option_symbol' not in st.session_state:
+            st.session_state.option_symbol = None  # Initialize this as None or an empty value
+    if 'quantity' not in st.session_state:
+            st.session_state.quantity = 0.1  # Default quantity
+    if 'option_side' not in st.session_state:
+            st.session_state.option_side = "BUY"  # Default side
+
+def technical_analysis():
+    if st.session_state.technical_4h is None:
+        analytics_insight_4h = technical_4h.get_technical_data()
+        st.session_state.technical_4h  = analytics_insight_4h
+
+    if st.session_state.technical_daily is None:
+        analytics_insight_daily = technical_daily.get_technical_data()
+        st.session_state.technical_daily = analytics_insight_daily 
+
+
+def start_data_refresh_thread():
+    if st.session_state.data_refresh_thread is None or not st.session_state.data_refresh_thread.is_alive():
+        st.session_state.data_refresh_thread = threading.Thread(target=start_fetching_data_from_api)
+        st.session_state.data_refresh_thread.start()  # Start the background thread
+
+def update_public_trades(filter=None):
+    # Fetch data based on the current checkbox value
+    st.session_state.public_trades_df = fetch_data.load_market_trades(
+        filter=filter,
+        drop=False,
+        show_24h_public_trades=st.session_state.show_24_public_trades
+    )
 
     
       
