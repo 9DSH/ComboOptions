@@ -369,7 +369,7 @@ def plot_strike_price_vs_entry_value(filtered_df):
         x=filtered_df.loc[(filtered_df['Option Type'] == 'Put') & (filtered_df['Side'] == 'SELL'), 'Strike Price'],
         y=filtered_df.loc[(filtered_df['Option Type'] == 'Put') & (filtered_df['Side'] == 'SELL'), 'Entry Value'],
         mode='markers',
-        marker=dict(symbol='triangle-down', color='red', size=10, opacity=1, line=dict(color='black', width=0.5)),  # Downward red triangle for SELL with black border
+        marker=dict(symbol='triangle-up', color='red', size=10, opacity=1, line=dict(color='black', width=0.5)),  # Downward red triangle for SELL with black border
         name='Sell Puts',
         hoverinfo='text', 
         hovertext=filtered_df.loc[(filtered_df['Option Type'] == 'Put') & (filtered_df['Side'] == 'SELL'), 'hover_text']
@@ -391,7 +391,7 @@ def plot_strike_price_vs_entry_value(filtered_df):
         x=filtered_df.loc[(filtered_df['Option Type'] == 'Call') & (filtered_df['Side'] == 'SELL'), 'Strike Price'],
         y=filtered_df.loc[(filtered_df['Option Type'] == 'Call') & (filtered_df['Side'] == 'SELL'), 'Entry Value'],
         mode='markers',
-        marker=dict(symbol='triangle-up', color='darkorange', size=10, opacity=1, line=dict(color='black', width=0.5)),  # Upward dark orange triangle for SELL with black border
+        marker=dict(symbol='triangle-down', color='darkorange', size=10, opacity=1, line=dict(color='black', width=0.5)),  # Upward dark orange triangle for SELL with black border
         name='Sell Calls',
         hoverinfo='text', 
         hovertext=filtered_df.loc[(filtered_df['Option Type'] == 'Call') & (filtered_df['Side'] == 'SELL'), 'hover_text']

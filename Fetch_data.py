@@ -8,6 +8,8 @@ import time
 from Start_fetching_data import get_btcusd_price
 
 
+
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -24,6 +26,7 @@ class Fetching_data:
         self.analytic_data_csv = analytic_data_csv
         self.public_trades_24h_csv =  public_trades_24h_csv
         # Initialize empty DataFrames for options data and screener
+        
         self.analytic_data = pd.DataFrame()
         self.options_data = pd.DataFrame()
         self.options_screener = pd.DataFrame()
@@ -34,7 +37,7 @@ class Fetching_data:
         """Fetch available currencies for options."""
         return ['BTC', 'ETH']
     
-        
+       
     def fetch_available_dates(self, currency='BTC'):
         """Fetch all available expiration dates from the local options data DataFrame."""
         if self.options_data.empty:
@@ -80,6 +83,9 @@ class Fetching_data:
                 logging.error(f"Unexpected error loading {file_path}: {e}")
                 setattr(self, data_attribute, pd.DataFrame())
                 time.sleep(10)
+        
+        if data_type == "historical_data":
+            load_csv(self.historical_data , 'historical_data')
 
         if data_type == "options_data":
             load_csv(self.options_data_csv, 'options_data')

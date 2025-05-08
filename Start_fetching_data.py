@@ -1,4 +1,5 @@
 from Deribit import DeribitAPI
+import streamlit as st
 from datetime import date, datetime , timedelta
 import time
 
@@ -7,9 +8,12 @@ CLIENT_ID = 'i_kH-t6n'
 CLIENT_SECRET = 'sHrn7n_7RE4vVEzhMkm3n4S8giSl5gK9L9qLcXFtDTk'
 deribit_api = DeribitAPI(CLIENT_ID, CLIENT_SECRET)
 
+
+
 def start_fetching_data_from_api():
     while True:
         try:
+
             # Clear the price cache before fetching new data
             deribit_api.clear_price_cache()
             

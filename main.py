@@ -8,13 +8,15 @@ import threading
 from datetime import date, datetime, timedelta , timezone
 import logging
 import warnings
-from Fetch_data import Fetching_data
-from Analytics import Analytic_processing
-from Calculations import calculate_option_profit , calculate_totals_for_options, get_most_traded_instruments , calculate_sums_of_public_trades_profit
-from Charts import plot_hourly_activity ,plot_most_strategy_bar_chart , plot_top_strikes_pie_chart , plot_strike_price_vs_entry_value , plot_stacked_calls_puts, plot_option_profit , plot_radar_chart, plot_price_vs_entry_date, plot_most_traded_instruments , plot_underlying_price_vs_entry_value , plot_identified_whale_trades, plot_public_profits
-from Start_fetching_data import start_fetching_data_from_api,  get_btcusd_price
+from Calculations import *
+from Charts import *
+from Start_fetching_data import *
 import plotly.graph_objects as go 
 from AI import Chatbar
+from Fetch_data import Fetching_data
+from Analytics import Analytic_processing
+
+from Technical_Analysis import TechnicalAnalysis
 
 warnings.filterwarnings("ignore", message=".*missing ScriptRunContext.*")
 # Configure logging
@@ -28,6 +30,10 @@ st.set_page_config(page_title='Trading Dashboard', layout='wide')
 
 fetch_data = Fetching_data()
 analytics = Analytic_processing()
+
+technical_4h = TechnicalAnalysis("BTC-USD", "4h" ,'technical_analysis_4h.csv') 
+technical_daily = TechnicalAnalysis("BTC-USD", "1d" ,'technical_analysis_daily.csv') 
+
 
 
 # Chat sidebar 
@@ -44,6 +50,20 @@ public_trades_thread = None
 if 'data_refresh_thread' not in st.session_state:
     st.session_state.data_refresh_thread = None
 
+if 'technical_4h' not in st.session_state:
+    st.session_state.technical_4h = None
+
+if 'technical_daily' not in st.session_state:
+    st.session_state.technical_daily = None
+
+def technical_analysis():
+    if st.session_state.technical_4h is None:
+        analytics_insight_4h = technical_4h.get_technical_data()
+        st.session_state.technical_4h  = analytics_insight_4h
+
+    if st.session_state.technical_daily is None:
+        analytics_insight_daily = technical_daily.get_technical_data()
+        st.session_state.technical_daily = analytics_insight_daily 
 
 
 def start_data_refresh_thread():
@@ -55,7 +75,6 @@ def start_data_refresh_thread():
 def app():
     start_data_refresh_thread()
     #chat.display_chat()
-
     
     if 'most_profitable_df' not in st.session_state:
         st.session_state.most_profitable_df = pd.DataFrame()  # Initialize with an empty DataFrame
@@ -66,19 +85,104 @@ def app():
     # Fetch and display the current price
     btc_price , highest, lowest = get_btcusd_price()
     with title_row:
-        col1, col2, col3 = st.columns([1, 2, 1])  # Adjust ratio for centering
+        col1, col2, col3 = st.columns([1, 5, 1])  # Adjust ratio for centering
         with col1:
             show_24h_public_trades = st.checkbox("Show 24h Public Trades", value=True)
             
         with col2:
-            colmm1, colmm2 , colmm3= st.columns([1,1,1])
-            with colmm1:
-                st.markdown(f"<div style='font-size: 12px; margin-left: 80px;'>Lowest</div><div style='font-size: 16px;color: #f54b4b; margin-left: 80px;'>{lowest}</div>", unsafe_allow_html=True)
-            with colmm2:
-                btc_display_price = f"{btc_price:.0f}" if btc_price is not None else "Loading..."
-                st.metric(label="BTC USD", value=btc_display_price, delta=None, delta_color="normal", help="Bitcoin price in USD ")
-            with colmm3:
-                st.markdown(f"<div style='font-size: 12px; margin-left: -50px;'>Highest</div><div style='font-size: 16px; color: #90EE90; margin-left: -50px;'>{highest}</div>", unsafe_allow_html=True)
+            technical_daily_row1 = st.container()
+            technical_4h_row2 = st.container()
+            
+            if st.session_state.technical_daily is not None:
+                daily_support_list= st.session_state.technical_daily.get("support", 'Key not found') 
+                daily_resistance_list = st.session_state.technical_daily.get("resistance", 'Key not found')      
+            else:
+                daily_support_list = None  
+                daily_resistance_list = None    
+                print('technical_daily is None')
+
+            if st.session_state.technical_4h is not None:
+                _4h_support_list = st.session_state.technical_4h.get("support", 'Key not found')
+                _4h_resistance_list = st.session_state.technical_4h.get("resistance", 'Key not found')        
+            else:
+                _4h_support_list = None  
+                _4h_resistance_list  = None    
+                print('technical_daily is None')
+                    
+            daily_support_1, daily_support_2, daily_support_3 = (daily_support_list + [None, None, None])[:3]
+            daily_resistance_1, daily_resistance_2, daily_resistance_3 = (daily_resistance_list + [None, None, None])[:3]
+
+            support_4h_1, support_4h_2, support_4h_3 = (_4h_support_list + [None, None, None])[:3]
+            resistance_4h_1, resistance_4h_2, resistance_4h_3 = (_4h_resistance_list + [None, None, None])[:3]
+            
+            
+            support_title_col , support_col1, support_col2,  support_col3,  price_col, resistance_col1, resistance_col2,  resistance_col3 , res_title_col= st.columns([1,1,1,1,1,1,1,1,1])
+
+            with technical_daily_row1 : 
+                with support_title_col : 
+                    st.markdown(f"<div style='font-size: 12px; color: gray;text-align: center;'>Daily Supports</div>", unsafe_allow_html=True)
+                    st.markdown("<hr style='margin: 10px;'>", unsafe_allow_html=True) 
+                with support_col1:
+                    st.markdown(f"<div style='font-size: 12px; color: white; text-align: center;'>{daily_support_1:.0f}</div>" if isinstance(daily_support_1, float) else "", unsafe_allow_html=True)
+                    st.markdown("<hr style='margin: 10px;'>", unsafe_allow_html=True) 
+                with support_col2:
+                    st.markdown(f"<div style='font-size: 12px; color: white;text-align: center;'>{daily_support_2:.0f}</div>" if isinstance(daily_support_2, float) else "", unsafe_allow_html=True)
+                    st.markdown("<hr style='margin: 10px;'>", unsafe_allow_html=True) 
+                with support_col3:    
+                    st.markdown(f"<div style='font-size: 12px; color: white;text-align: center;'>{daily_support_3:.0f}</div>" if isinstance(daily_support_3, float) else "", unsafe_allow_html=True)
+                    st.markdown("<hr style='margin:10px;'>", unsafe_allow_html=True) 
+
+                with resistance_col1:
+                    st.markdown(f"<div style='font-size: 12px; color: white;text-align: center;'>{daily_resistance_1:.0f}</div>" if isinstance(daily_resistance_1, float) else "", unsafe_allow_html=True)
+                    st.markdown("<hr style='margin: 10px;'>", unsafe_allow_html=True) 
+                with resistance_col2:
+                    st.markdown(f"<div style='font-size: 12px; color: white;text-align: center;'>{daily_resistance_2:.0f}</div>" if isinstance(daily_resistance_2, float) else "", unsafe_allow_html=True)
+                    st.markdown("<hr style='margin: 10px;'>", unsafe_allow_html=True) 
+                with resistance_col3:
+                    st.markdown(f"<div style='font-size: 12px; color: white;text-align: center;'>{daily_resistance_3:.0f}</div>" if isinstance(daily_resistance_3, float) else "", unsafe_allow_html=True)
+                    st.markdown("<hr style='margin: 10px;'>", unsafe_allow_html=True) 
+                with res_title_col:
+                    
+                    st.markdown(f"<div style='font-size: 12px; color: gray;text-align: center;'>Daily Resistances</div>", unsafe_allow_html=True)
+                    st.markdown("<hr style='margin: 10px;'>", unsafe_allow_html=True) 
+
+
+            with  technical_4h_row2 :
+                
+                with support_title_col : 
+                    st.markdown(f"<div style='font-size: 12px; color: gray;text-align: center;'>4 Hour Supports</div>", unsafe_allow_html=True)
+                with support_col1:
+                    st.markdown(f"<div style='font-size: 12px; color: white;text-align: center;'>{support_4h_1:.0f}</div>" if isinstance(support_4h_1, float) else "", unsafe_allow_html=True)
+                with support_col2:
+                    st.markdown(f"<div style='font-size: 12px; color: white;text-align: center;'>{support_4h_2:.0f}</div>" if isinstance(support_4h_2, float) else "", unsafe_allow_html=True)
+                with support_col3:    
+                    st.markdown(f"<div style='font-size: 12px; color: white;text-align: center;'>{support_4h_3:.0f}</div>" if isinstance(support_4h_3, float) else "", unsafe_allow_html=True)
+                
+                with resistance_col1:
+                    st.markdown(f"<div style='font-size: 12px; color: white;text-align: center;'>{resistance_4h_1:.0f}</div>" if isinstance(resistance_4h_1, float) else "", unsafe_allow_html=True)
+                with resistance_col2:
+                    st.markdown(f"<div style='font-size: 12px; color: white;text-align: center;'>{resistance_4h_2:.0f}</div>" if isinstance(resistance_4h_2, float) else "", unsafe_allow_html=True)
+                with resistance_col3:
+                    st.markdown(f"<div style='font-size: 12px; color: white;text-align: center;'>{resistance_4h_3:.0f}</div>" if isinstance(resistance_4h_3, float) else "", unsafe_allow_html=True)
+                with res_title_col:
+                    
+                    st.markdown(f"<div style='font-size: 12px; color: gray;text-align: center;'>4 Hours Resistances</div>", unsafe_allow_html=True)
+            with price_col : 
+                highest_row = st.container()
+                price_row = st.container()
+                lowest_row = st.container()
+
+                with highest_row:
+                    
+                    st.markdown(f"<div style='font-size: 14px; color: #90EE90;text-align: center;'>{highest}</div>", unsafe_allow_html=True)
+                with price_row: 
+                
+                    btc_display_price = f"{btc_price:.0f}" if btc_price is not None else "Loading..."
+                    st.markdown(f"<div style='font-size: 25px;text-align: center;'>{btc_display_price}</div>", unsafe_allow_html=True)
+                with lowest_row:
+                    
+                    st.markdown(f"<div style='font-size: 14px;color: #f54b4b;text-align: center; '>{lowest}</div>", unsafe_allow_html=True)
+            
             
                 
         with col3:
@@ -1190,7 +1294,7 @@ if __name__ == "__main__":
         # We are already running under "streamlit run" – proceed with your app.
         # Start the background thread once (if not already started).
         # Now call your app() function to render the Streamlit interface.
-        
+        technical_analysis()
         app()
         
     

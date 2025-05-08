@@ -436,3 +436,5 @@ class Analytic_processing:
                 )
             
             return insights
+    
+    
