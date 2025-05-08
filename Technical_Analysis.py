@@ -106,13 +106,14 @@ class TechnicalAnalysis:
         nearby_priceactions = unique_price_actions[(unique_price_actions >= lower_bound) & (unique_price_actions <= upper_bound)].tolist()
 
         # Separate into resistance (greater than current_price) and support (less than current_price)
-        resistance = [price for price in nearby_priceactions if price > current_price]
-        support = [price for price in nearby_priceactions if price < current_price]
-        
+        resistance = [price for price in unique_price_actions if price > current_price]
+        support = [price for price in unique_price_actions if price < current_price]
+
+        print("raw" , support)
             # Limit resistance and support lists to a maximum of 3 values each
         resistance = sorted(resistance, reverse=False)[:3]  # Take the top 3 greater values
-        support = sorted(support, reverse=False)[:3]  # Take the top 3 lesser values in reverse order
-
+        support = sorted(support, reverse=False)[-3:]  # Take the last 3 values
+        print(support)
         # Return the insights as a dictionary
         return {
             "unique_price_actions": unique_price_actions.tolist(),

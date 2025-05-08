@@ -92,7 +92,7 @@ def app():
                 _4h_support_list = None  
                 _4h_resistance_list  = None    
                 print('technical_daily is None')
-                    
+
             daily_support_1, daily_support_2 , daily_support_3 = (daily_support_list + [None, None, None])[:3]
             daily_resistance_1, daily_resistance_2, daily_resistance_3 = (daily_resistance_list + [None, None, None])[:3]
 
