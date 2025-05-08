@@ -420,10 +420,9 @@ def app():
                                     st.markdown(f"<p style='font-size: 17px;font-weight: bold;'> {total_entry_values:,.0f}</p>", unsafe_allow_html=True)
                             with col5:
                                 st.checkbox(
-                                                                            "Show 24h Public Trades",
-                                                                            value=True,
-                                                                            key='show_24_public_trades',
-                                                                            on_change=update_public_trades
+                                             "Show 24h Public Trades",
+                                               key='show_24_public_trades',
+                                               on_change=update_public_trades
                                                                         )
 
                         detail_column_2, detail_column_3 = st.columns(2)                       

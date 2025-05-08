@@ -313,10 +313,10 @@ def plot_stacked_calls_puts(df):
                 name=f'{action} {option}s',
                 marker=dict(
                     color='green' if action == 'Buy' and option == 'Put' 
-                          else 'red' if action == 'Sell' and option == 'Put' 
+                          else 'darkred' if action == 'Sell' and option == 'Put' 
                           else 'teal' if action == 'Buy' and option == 'Call' 
-                          else 'orange',
-                    line=dict(width=0)  # Remove the white border
+                          else 'darkorange',
+                    line=dict(color='black', width=1) 
                 ),
                 hovertemplate=(
                     "Strike Price: %{x}<br>" +
