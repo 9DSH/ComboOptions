@@ -196,18 +196,6 @@ def app():
 
 
 
-    # Create columns for the layout
-    colm1, colm2, colm3 = st.columns(3)
-
-    # Populate each column with metrics using HTML for reduced size
-    with colm1:
-        st.write("")
-
-    with colm2:
-        st.write("")
-    with colm3:
-        st.write("")
-
     # Initialize data fetching at the start of the app
     # Button to refresh data
     
