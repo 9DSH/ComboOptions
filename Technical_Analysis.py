@@ -93,7 +93,7 @@ class TechnicalAnalysis:
             unique_price_actions = pd.Series(filtered_price_actions)
 
         # Get the last row value from the 'predicted_trend' column
-        last_predicted_trend = df['predicted_trend'].iloc[-1]
+        last_predicted_trend = df['predicted_trend'].iloc[-2]
 
         # Get the current price from the last value of the 'close' column
         current_price = df['close'].iloc[-1]
@@ -109,11 +109,9 @@ class TechnicalAnalysis:
         resistance = [price for price in unique_price_actions if price > current_price]
         support = [price for price in unique_price_actions if price < current_price]
 
-        print("raw" , support)
             # Limit resistance and support lists to a maximum of 3 values each
         resistance = sorted(resistance, reverse=False)[:3]  # Take the top 3 greater values
         support = sorted(support, reverse=False)[-3:]  # Take the last 3 values
-        print(support)
         # Return the insights as a dictionary
         return {
             "unique_price_actions": unique_price_actions.tolist(),
