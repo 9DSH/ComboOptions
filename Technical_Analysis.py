@@ -93,7 +93,7 @@ class TechnicalAnalysis:
             unique_price_actions = pd.Series(filtered_price_actions)
 
         # Get the last row value from the 'predicted_trend' column
-        last_predicted_trend = df['predicted_trend'].iloc[-2]
+        last_predicted_trend = df['predicted_trend'].iloc[-1]
 
         # Get the current price from the last value of the 'close' column
         current_price = df['close'].iloc[-1]
@@ -315,6 +315,12 @@ class TechnicalAnalysis:
         current_price_action = df_switches['price_action']
 
         # Update previous price action based on current price action changes
+        last_group = df_switches["group"].iloc[-1]
+        if df_switches["switch_komu"].iloc[-1] == 0:
+            # If the last switch is neutral, carry forward the last known price action
+            df_switches.loc[df_switches["group"] == last_group, "price_action"] = df_switches["price_action"].iloc[-2]
+
+        # Update previous price action based on current price action changes
         for i in range(1, len(df_switches)):
             if current_price_action.iloc[i] != current_price_action.iloc[i - 1]:
                 df_switches.loc[i, 'previous_price_action'] = current_price_action.iloc[i - 1]
@@ -322,6 +328,7 @@ class TechnicalAnalysis:
                 df_switches.loc[i, 'previous_price_action'] = df_switches.loc[i - 1, 'previous_price_action']
 
         df_switches['previous_price_action'].fillna(0, inplace=True)
+
         return df_switches[["price_action", "previous_price_action"]]
 
 
