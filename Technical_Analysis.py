@@ -70,55 +70,57 @@ class TechnicalAnalysis:
                 return trend_insights
         
         
-    def analyze_market_trend(self, df):
-        # Drop NA values from specific columns
-        df = df.dropna(subset=['price_action', 'predicted_trend', 'close'])
+    def analyze_market_trend(self, df: pd.DataFrame) -> dict:
+        # Ensure we're working on a fresh copy after dropping NAs to avoid SettingWithCopyWarning
+        df = (
+            df.dropna(subset=['price_action', 'predicted_trend', 'close'])
+              .copy()
+        )
 
-        # Convert price_action and close to numeric and drop any NA values
-        df['price_action'] = pd.to_numeric(df['price_action'], errors='coerce').dropna()
-        df['close'] = pd.to_numeric(df['close'], errors='coerce').dropna()
+        # Convert columns to numeric safely
+        df.loc[:, 'price_action'] = pd.to_numeric(df['price_action'], errors='coerce')
+        df.loc[:, 'close'] = pd.to_numeric(df['close'], errors='coerce')
 
-        # Get unique values from the 'price_action' column, drop duplicates, and sort
-        unique_price_actions = df['price_action'].drop_duplicates().sort_values().reset_index(drop=True)
+        # Drop any rows that became NaN after conversion
+        df = df.dropna(subset=['price_action', 'close'])
 
-        # Keep the larger value if the difference between values is less than 100
+        # Unique sorted price actions
+        unique_price_actions = (
+            df['price_action']
+              .drop_duplicates()
+              .sort_values()
+              .reset_index(drop=True)
+        )
+
+        # Merge close values within 100-point ranges, keeping the larger
         if not unique_price_actions.empty:
-            filtered_price_actions = [unique_price_actions[0]]  # Start with the first value
-            for value in unique_price_actions[1:]:
-                if value - filtered_price_actions[-1] >= 100:  # Keep it if the difference is >= 100
-                    filtered_price_actions.append(value)
+            filtered = [unique_price_actions.iloc[0]]
+            for val in unique_price_actions.iloc[1:]:
+                if val - filtered[-1] >= 100:
+                    filtered.append(val)
                 else:
-                    filtered_price_actions[-1] = max(filtered_price_actions[-1], value)  # Keep the larger
+                    filtered[-1] = max(filtered[-1], val)
+            unique_price_actions = pd.Series(filtered)
 
-            unique_price_actions = pd.Series(filtered_price_actions)
+        # Latest predictions and current price
+        last_predicted_trend = df['predicted_trend'].iat[-1]
+        current_price = df['close'].iat[-1]
 
-        # Get the last row value from the 'predicted_trend' column
-        last_predicted_trend = df['predicted_trend'].iloc[-1]
-
-        # Get the current price from the last value of the 'close' column
-        current_price = df['close'].iloc[-1]
-
-        # Define the range for nearby price actions using unique_price_actions
+        # Determine support and resistance levels around current price
         lower_bound = current_price - 3000
         upper_bound = current_price + 3000
+        nearby = unique_price_actions[(unique_price_actions >= lower_bound) & (unique_price_actions <= upper_bound)]
 
-        # Get nearby price actions within the defined range using unique_price_actions
-        nearby_priceactions = unique_price_actions[(unique_price_actions >= lower_bound) & (unique_price_actions <= upper_bound)].tolist()
+        resistance = sorted([p for p in unique_price_actions if p > current_price])[:3]
+        support = sorted([p for p in unique_price_actions if p < current_price])[-3:]
 
-        # Separate into resistance (greater than current_price) and support (less than current_price)
-        resistance = [price for price in unique_price_actions if price > current_price]
-        support = [price for price in unique_price_actions if price < current_price]
-
-            # Limit resistance and support lists to a maximum of 3 values each
-        resistance = sorted(resistance, reverse=False)[:3]  # Take the top 3 greater values
-        support = sorted(support, reverse=False)[-3:]  # Take the last 3 values
-        # Return the insights as a dictionary
         return {
-            "unique_price_actions": unique_price_actions.tolist(),
-            "last_predicted_trend": last_predicted_trend,
-            "current_price": current_price,
-            "resistance": resistance,
-            "support": support
+            'unique_price_actions': unique_price_actions.tolist(),
+            'nearby_price_actions': nearby.tolist(),
+            'last_predicted_trend': last_predicted_trend,
+            'current_price': current_price,
+            'resistance': resistance,
+            'support': support
         }
     
     def fetch_historical_data(self):

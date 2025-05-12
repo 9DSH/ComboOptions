@@ -307,15 +307,18 @@ def plot_stacked_calls_puts(df):
 
         # Only add traces if the option type has data
         if any(y_value):
+            color = 'green' if action == 'Buy' and option == 'Put' \
+                    else 'darkred' if action == 'Sell' and option == 'Put' \
+                    else 'teal' if action == 'Buy' and option == 'Call' \
+                    else 'darkorange'
+            textcolor = 'black' if action == 'Sell' and  option == 'Call' \
+                    else 'white'
             fig.add_trace(go.Bar(
                 x=grouped_data.index,
                 y=y_value,
                 name=f'{action} {option}s',
                 marker=dict(
-                    color='green' if action == 'Buy' and option == 'Put' 
-                          else 'darkred' if action == 'Sell' and option == 'Put' 
-                          else 'teal' if action == 'Buy' and option == 'Call' 
-                          else 'darkorange',
+                    color=color,
                     line=dict(color='black', width=1) 
                 ),
                 hovertemplate=(
@@ -325,6 +328,7 @@ def plot_stacked_calls_puts(df):
                     "Buy Puts: %{customdata[2]} (%{customdata[6]:.2f}%)<br>" +
                     "Sell Puts: %{customdata[3]} (%{customdata[7]:.2f}%)<br>" 
                 ),
+                hoverlabel=dict(bgcolor=color,  font=dict(color=textcolor)),  # Set hover background color to match the bar color
                 customdata=customdata
             ))
 
@@ -361,7 +365,8 @@ def plot_strike_price_vs_entry_value(filtered_df):
         marker=dict(symbol='triangle-down', color='green', size=10, opacity=1, line=dict(color='black', width=0.5)),  # Downward green triangle for BUY with black border
         name='Buy Puts',
         hoverinfo='text', 
-        hovertext=filtered_df.loc[(filtered_df['Option Type'] == 'Put') & (filtered_df['Side'] == 'BUY'), 'hover_text']
+        hovertext=filtered_df.loc[(filtered_df['Option Type'] == 'Put') & (filtered_df['Side'] == 'BUY'), 'hover_text'],
+        hoverlabel=dict(bgcolor='green')
     ))
 
     # Add traces for Sell Put options (downward red triangle)
@@ -372,7 +377,8 @@ def plot_strike_price_vs_entry_value(filtered_df):
         marker=dict(symbol='triangle-up', color='red', size=10, opacity=1, line=dict(color='black', width=0.5)),  # Downward red triangle for SELL with black border
         name='Sell Puts',
         hoverinfo='text', 
-        hovertext=filtered_df.loc[(filtered_df['Option Type'] == 'Put') & (filtered_df['Side'] == 'SELL'), 'hover_text']
+        hovertext=filtered_df.loc[(filtered_df['Option Type'] == 'Put') & (filtered_df['Side'] == 'SELL'), 'hover_text'],
+        hoverlabel=dict(bgcolor='red')
     ))
 
     # Add traces for Buy Call options (upward green triangle)
@@ -383,7 +389,8 @@ def plot_strike_price_vs_entry_value(filtered_df):
         marker=dict(symbol='triangle-up', color='teal', size=10, opacity=1, line=dict(color='black', width=0.5)),  # Upward teal triangle for BUY with black border
         name='Buy Calls',
         hoverinfo='text', 
-        hovertext=filtered_df.loc[(filtered_df['Option Type'] == 'Call') & (filtered_df['Side'] == 'BUY'), 'hover_text']
+        hovertext=filtered_df.loc[(filtered_df['Option Type'] == 'Call') & (filtered_df['Side'] == 'BUY'), 'hover_text'],
+        hoverlabel=dict(bgcolor='teal')
     ))
 
     # Add traces for Sell Call options (upward red triangle)
@@ -394,7 +401,8 @@ def plot_strike_price_vs_entry_value(filtered_df):
         marker=dict(symbol='triangle-down', color='darkorange', size=10, opacity=1, line=dict(color='black', width=0.5)),  # Upward dark orange triangle for SELL with black border
         name='Sell Calls',
         hoverinfo='text', 
-        hovertext=filtered_df.loc[(filtered_df['Option Type'] == 'Call') & (filtered_df['Side'] == 'SELL'), 'hover_text']
+        hovertext=filtered_df.loc[(filtered_df['Option Type'] == 'Call') & (filtered_df['Side'] == 'SELL'), 'hover_text'],
+        hoverlabel=dict(bgcolor='darkorange', font=dict(color='black'))
     ))
 
     # Update layout

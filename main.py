@@ -67,6 +67,8 @@ def app():
     #-----------------------------------------------------------------
      # Fetch and display the current price
     btc_price , highest, lowest = get_btcusd_price()
+    upper_strike_filter = int(btc_price) + 30000
+    lower_strike_filter = abs(int(btc_price) - 30000)
 
     title_row = st.container()
     with title_row:
@@ -78,7 +80,7 @@ def app():
             
             if st.session_state.technical_daily is not None:
                 daily_support_list= st.session_state.technical_daily.get("support", 'Key not found') 
-                daily_resistance_list = st.session_state.technical_daily.get("resistance", 'Key not found')      
+                daily_resistance_list = st.session_state.technical_daily.get("resistance", 'Key not found')  
             else:
                 daily_support_list = None  
                 daily_resistance_list = None    
@@ -241,12 +243,16 @@ def app():
 
                         with date_row1:
                             cc1, cc2, cc3 = st.columns([0.04, 0.02, 0.02])
+                            oldest_entry_date = st.session_state.public_trades_df['Entry Date'][1]
+                            oldest_entry_date_date = oldest_entry_date.date()
+                            oldest_entry_date_hour = oldest_entry_date.hour
+                            oldest_entry_date_minute = oldest_entry_date.minute
                             with cc1:
-                                start_date = st.date_input("Start Entry Date", value=date(2025, 3, 1))
+                                start_date = st.date_input("Start Entry Date", value=oldest_entry_date_date)
                             with cc2:
-                                start_hour = st.number_input("Hour", min_value=0, max_value=23, value=0)
+                                start_hour = st.number_input("Hour", min_value=0, max_value=23, value=oldest_entry_date_hour)
                             with cc3:
-                                start_minute = st.number_input("Minute", min_value=0, max_value=59, value=0)
+                                start_minute = st.number_input("Minute", min_value=0, max_value=59, value=oldest_entry_date_minute)
 
                         with date_row2:
                             ca1, ca2, ca3 = st.columns([0.04, 0.02, 0.02])
@@ -271,9 +277,9 @@ def app():
                         with row_one:
                             strike_col1, strike_col2 = st.columns(2)
                             with strike_col1:
-                                min_strike = st.number_input("Minimum strike", min_value=0, max_value=400000, value=60000)
+                                min_strike = st.number_input("Minimum strike", min_value=0, max_value=400000, value=lower_strike_filter)
                             with strike_col2:
-                                max_strike = st.number_input("Maximum strike", min_value=0, max_value=400000, value=120000)
+                                max_strike = st.number_input("Maximum strike", min_value=0, max_value=400000, value=upper_strike_filter)
                         with row_two:
                             size_col1, size_col2 = st.columns(2)
                             with size_col1:
@@ -281,6 +287,10 @@ def app():
                             with size_col2:
                                 max_size = st.number_input("Maximum size", min_value=0.1, max_value=500.0, value=500.0)
                             size_range = (min_size, max_size)
+
+                            if 'Size' in market_screener_df.columns:
+                                market_screener_df['Size'] = pd.to_numeric(market_screener_df['Size'], errors='coerce')
+
 
                     with col_vertical_2:
                         st.markdown("<div style='height: 150px; width: 1px; background-color: gray; margin: auto;'></div>", unsafe_allow_html=True)  # Vertical line
@@ -397,7 +407,7 @@ def app():
                                 row_count_title = st.container()
                                 row_count = st.container()
                                 with row_count_title:
-                                    st.markdown(f"<p style='font-size: 12px; color: gray;'> Total Counts:</p>", unsafe_allow_html=True)
+                                    st.markdown(f"<p style='font-size: 12px; color: gray;'> Total Trades:</p>", unsafe_allow_html=True)
                                 with row_count:
                                     st.markdown(f"<p style='font-size: 17px; font-weight: bold;'> {total_options:,}</p>", unsafe_allow_html=True)
                                 
@@ -1309,10 +1319,10 @@ def start_data_refresh_thread():
 def update_public_trades(filter=None):
     # Fetch data based on the current checkbox value
     st.session_state.public_trades_df = fetch_data.load_market_trades(
-        filter=filter,
-        drop=False,
-        show_24h_public_trades=st.session_state.show_24_public_trades
-    )
+                                                                    filter=filter,
+                                                                    drop=False,
+                                                                    show_24h_public_trades=st.session_state.show_24_public_trades
+                                                                )
 
     
       
