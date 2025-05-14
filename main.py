@@ -80,7 +80,7 @@ def app():
             
             if st.session_state.technical_daily is not None:
                 daily_support_list= st.session_state.technical_daily.get("support", 'Key not found') 
-                daily_resistance_list = st.session_state.technical_daily.get("resistance", 'Key not found')  
+                daily_resistance_list = st.session_state.technical_daily.get("resistance", 'Key not found')   
             else:
                 daily_support_list = None  
                 daily_resistance_list = None    
