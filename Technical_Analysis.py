@@ -424,3 +424,5 @@ class TechnicalAnalysis:
         trend_series[conditions_bearish] = "Bearish"
 
         return trend_series
+    
+    

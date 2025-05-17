@@ -253,6 +253,17 @@ class DeribitAPI:
 
         return True
     
+    def validate_df_mismatch(self, df):
+        print("Starting validate_df_mismatch...")
+        expected_fields = 18
+
+        # Check for valid rows by comparing the number of columns
+        valid_rows = df[df.apply(lambda row: len(row) == expected_fields, axis=1)].reset_index(drop=True)
+
+        print(f"Number of valid rows: {valid_rows.shape[0]} out of {df.shape[0]}")
+        print("validate_df_mismatch complete.")
+        return valid_rows
+        
     def process_screener_data(self, public_trades_df):
         """Process the public trades DataFrame by performing calculations, renaming columns, and saving it.
         raw_columns = [
@@ -326,7 +337,7 @@ class DeribitAPI:
 
         # Read existing data from CSV
         try:
-            existing_df = pd.read_csv(self.options_screener_csv) if os.path.exists(self.options_screener_csv) else pd.DataFrame(columns=new_order)
+            existing_df = pd.read_csv(self.options_screener_csv, on_bad_lines='skip') if os.path.exists(self.options_screener_csv) else pd.DataFrame(columns=new_order)
         except FileNotFoundError:
             existing_df = pd.DataFrame(columns=new_order)
         
@@ -336,8 +347,10 @@ class DeribitAPI:
         # Identify and remove all rows with duplicate Trade IDs (keep none)
         mask = combined_df.duplicated(subset=['Trade ID', 'Price (BTC)' , 'Underlying Price'], keep=False)
         public_trades_total = combined_df[~mask]
+
+        processed_df = self.validate_df_mismatch(public_trades_total)
         # Save the processed DataFrame to CSV using the existing method
-        self.save_to_csv(public_trades_total, data_type="options_screener")
+        self.save_to_csv(processed_df, data_type="options_screener")
         logging.info(f"Updated options screener data saved to {self.options_screener_csv}")
 
         self.save_to_csv(public_trades_df, data_type="public_trades_24h")

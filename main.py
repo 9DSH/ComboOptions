@@ -220,7 +220,7 @@ def app():
 #------------------------------------------------------------
 #-----------------------Market Watch ------------------
 #------------------------------------------------------------
-    main_tabs = st.tabs(["Market Watch",  "Live Trade Option", "Simulation", "Hedge Fund" ])
+    main_tabs = st.tabs(["Market Watch",  "Live Trade Option", "Simulation", "Technical Analysis" , "Hedge Fund" ])
     with main_tabs[0]: 
              # Initialize trades variable outside of any if conditions
             market_screener_df = st.session_state.public_trades_df
@@ -1143,10 +1143,51 @@ def app():
             else: 
                 st.warning("Set values then press simulate button")
     
+ #--------------------------------------------------------------
+#-----------------------Technical analysis ----------------------------
+#-------------------------------------------------------------   
+    with main_tabs[3]: 
+        left_padding, tch_col1, tch_col2 = st.columns([0.1,0.4 ,0.2])
+        with tch_col1:
+            timeframe = ["4h", "Daily"]
+            fig_trend = plot_predicted_trend(timeframes=timeframe)
+            st.plotly_chart(fig_trend )
+        with tch_col2:
+            _4h_col , daily_col = st.columns(2)
+            last_4h_trend = st.session_state.technical_4h.get("last_predicted_trend", 'Key not found') 
+            last_daily_trend = st.session_state.technical_daily.get("last_predicted_trend", 'Key not found')
+
+
+            
+            with _4h_col:
+                if last_4h_trend == "Neutral":
+                    textcolor_4h_trend = "white"
+                elif last_4h_trend == "Bullish":
+                    textcolor_4h_trend = "#90EE90"
+                elif last_4h_trend == "Bearish":
+                    textcolor_4h_trend = "#f54b4b"
+                else:
+                    textcolor_4h_trend = "white"  # Default color if _4h_trend is None or any other value
+                st.markdown(f"<div style='font-size: 14px; color:gray; text-align: center; margin-top:200px;'>4H Trend</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='font-size: 14px; color:{textcolor_4h_trend}; text-align: center; letter-spacing: 2px;'>{last_4h_trend}</div>", unsafe_allow_html=True)
+            with daily_col:
+                if last_daily_trend == "Neutral":
+                    textcolor_daily_trend = "white"
+                elif last_daily_trend == "Bullish":
+                     textcolor_daily_trend = "#90EE90"
+                elif last_daily_trend == "Bearish":
+                     textcolor_daily_trend = "#f54b4b"
+                else:
+                     textcolor_daily_trend = "white"  # Default color if _4h_trend is None or any other value
+                st.markdown(f"<div style='font-size: 14px; color:gray; text-align: center;margin-top:200px;'>Daily Trend</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='font-size: 14px; color:{ textcolor_daily_trend}; text-align: center; letter-spacing: 2px;'>{last_daily_trend}</div>", unsafe_allow_html=True)
+            
+
+       
 #--------------------------------------------------------------
 #-----------------------Combinations ----------------------------
 #-------------------------------------------------------------
-    with main_tabs[3]:
+    with main_tabs[4]:
 
             if st.session_state.most_profitable_df.shape[1] > 1:  # Assuming at least 'Underlying Price' and one profit column exists
                     most_profitable_df = st.session_state.most_profitable_df

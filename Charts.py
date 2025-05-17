@@ -1,4 +1,5 @@
 import plotly.graph_objects as go
+import os
 import pandas as pd
 from datetime import datetime , timedelta , timezone
 import numpy as np
@@ -374,11 +375,11 @@ def plot_strike_price_vs_entry_value(filtered_df):
         x=filtered_df.loc[(filtered_df['Option Type'] == 'Put') & (filtered_df['Side'] == 'SELL'), 'Strike Price'],
         y=filtered_df.loc[(filtered_df['Option Type'] == 'Put') & (filtered_df['Side'] == 'SELL'), 'Entry Value'],
         mode='markers',
-        marker=dict(symbol='triangle-up', color='red', size=10, opacity=1, line=dict(color='black', width=0.5)),  # Downward red triangle for SELL with black border
+        marker=dict(symbol='triangle-up', color='darkred', size=10, opacity=1, line=dict(color='black', width=0.5)),  # Downward red triangle for SELL with black border
         name='Sell Puts',
         hoverinfo='text', 
         hovertext=filtered_df.loc[(filtered_df['Option Type'] == 'Put') & (filtered_df['Side'] == 'SELL'), 'hover_text'],
-        hoverlabel=dict(bgcolor='red')
+        hoverlabel=dict(bgcolor='darkred')
     ))
 
     # Add traces for Buy Call options (upward green triangle)
@@ -1224,6 +1225,75 @@ def plot_hourly_activity(hourly_activity):
         template='plotly_white',  # Use a clean white template
         xaxis=dict(tickmode='linear'),  # Ensure all hours are shown
         height=300 # Decrease the height of the chart
+    )
+
+    return fig
+
+
+def plot_predicted_trend(timeframes):
+    """
+    Plot cumulative trend for each timeframe in the list.
+    For each timeframe, looks for a CSV file named 'technical_analysis_<timeframe>.csv' in the current directory.
+    Adds a trace for each existing file.
+
+    Args:
+        timeframes (str or list): A single timeframe string (e.g., "4h") or a list of timeframes (e.g., ["1h", "4h", "1d"]).
+
+    Returns:
+        fig (plotly.graph_objs.Figure): The plotly figure with traces for each timeframe found.
+    """
+    if isinstance(timeframes, str):
+        timeframes = [timeframes]
+
+    fig = go.Figure()
+    for tf in timeframes:
+        # Normalize common names
+        tf_str = str(tf).lower()
+        if tf_str in ["1d", "daily"]:
+            tf_file = "technical_analysis_daily.csv"
+            tf_label = "Daily"
+        elif tf_str in ["4h"]:
+            tf_file = "technical_analysis_4h.csv"
+            tf_label = "4H"
+        elif tf_str in ["1h"]:
+            tf_file = "technical_analysis_1h.csv"
+            tf_label = "1H"
+        else:
+            # fallback: use the string directly
+            tf_file = f"technical_analysis_{tf_str}.csv"
+            tf_label = tf_str.upper()
+
+        file_path = os.path.join(os.getcwd(), tf_file)
+        if not os.path.exists(file_path):
+            continue  # skip if file does not exist
+
+        df = pd.read_csv(file_path)
+        if "date" not in df.columns or "predicted_trend" not in df.columns:
+            continue  # skip if required columns are missing
+
+        df['date'] = pd.to_datetime(df['date'])
+        df['trend_value'] = 0
+        df.loc[df['predicted_trend'] == 'Bullish', 'trend_value'] = 1
+        df.loc[df['predicted_trend'] == 'Bearish', 'trend_value'] = -1
+        df.loc[df['predicted_trend'] == 'Neutral', 'trend_value'] = 0
+        df['cumulative_trend'] = df['trend_value'].cumsum()
+
+        fig.add_trace(go.Scatter(
+            x=df['date'],
+            y=df['cumulative_trend'],
+            mode='lines+markers',
+            name=f'Trend - {tf_label}',
+            line=dict(width=2),  # Narrower line
+            marker=dict(size=2)  # Smaller markers
+        ))
+
+    fig.update_layout(
+        title='Cumulative Trend Over Time',
+        xaxis_title='Date',
+        yaxis_title='Cumulative Trend Value',
+        xaxis=dict(title='Date', tickformat='%Y-%m-%d'),
+        yaxis=dict(title='Cumulative Trend Value'),
+        legend=dict(x=0, y=1)
     )
 
     return fig
