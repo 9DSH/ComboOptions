@@ -784,14 +784,12 @@ def plot_identified_whale_trades(df, min_size=5, max_size=50, min_opacity=0.3, m
 
     for entry_date, group in grouped:
         # Prepare hover text for all markers with the same entry date
-        if len(group) > 1:
-            hover_text = "<b>Connected Markers:</b><br>"
-            for _, row in group.iterrows():
+        hover_text = "<b>Connected Trades:</b><br>"
+        for _, row in group.iterrows():
                 hover_text += (
-                    f"{format_value(row['Strike Price'])} | {format_value(row[filter_type_str])} | {row['Side']} | {format_date(row['Expiration Date'])}<br>"
+                    f"{format_value(row['Strike Price'])} | {format_value(row[filter_type_str])} | {row['Side']} | {row['Option Type']} | {format_date(row['Expiration Date'])}<br>"
                 )
-        else:
-            hover_text = "Connected Markers: N/A"
+        
 
         # Add markers for each outlier
         for _, row in group.iterrows():
@@ -811,11 +809,7 @@ def plot_identified_whale_trades(df, min_size=5, max_size=50, min_opacity=0.3, m
                 ),
                 name=f"Strike: {row['Strike Price']}",
                 hovertemplate=(
-                    f"Entry Date: {row['Entry Date']}<br>"
-                    f"Expiration Date: {row['Expiration Date']}<br>"
-                    f"Strike Price: {format_value(row['Strike Price'])}<br>"
-                    f"{filter_type}: {format_value(row[filter_type_str])}<br>"
-                    f"Side: {row['Side']}<br><br>"
+                    f"Entry Date:<br> {row['Entry Date']}<br><br>"
                     f"{hover_text}<extra></extra>"
                 )
             ))
