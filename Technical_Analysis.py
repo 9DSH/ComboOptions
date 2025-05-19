@@ -45,7 +45,8 @@ class TechnicalAnalysis:
                 trend_insights = self.analyze_market_trend(self.technical_analysis_data)
 
                 return trend_insights
-                
+         
+                 
         elif self.interval == "4h":
             if os.path.exists(self.technical_analysis_data_csv):
                 df = pd.read_csv(self.technical_analysis_data_csv)

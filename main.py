@@ -33,6 +33,7 @@ analytics = Analytic_processing()
 
 technical_4h = TechnicalAnalysis("BTC-USD", "4h" ,'technical_analysis_4h.csv') 
 technical_daily = TechnicalAnalysis("BTC-USD", "1d" ,'technical_analysis_daily.csv') 
+technical_w = TechnicalAnalysis("BTC-USD", "1w" ,'technical_analysis_w.csv') 
 
 
 
@@ -220,7 +221,7 @@ def app():
 #------------------------------------------------------------
 #-----------------------Market Watch ------------------
 #------------------------------------------------------------
-    main_tabs = st.tabs(["Market Watch",  "Live Trade Option", "Simulation", "Technical Analysis" , "Hedge Fund" ])
+    main_tabs = st.tabs(["Market Watch",  "Live Trade Option", "Simulation", "Technical Analysis" ])
     with main_tabs[0]: 
              # Initialize trades variable outside of any if conditions
             market_screener_df = st.session_state.public_trades_df
@@ -961,14 +962,11 @@ def app():
                 st.subheader(f'Available Dates for {strike_price:.0f} {option_type.upper()}')
                 df_options_for_strike = df_options_for_strike.drop(columns=['Strike Price', 'Option Type'], errors='ignore')
                 st.dataframe(df_options_for_strike, use_container_width=True, hide_index=True)
+ 
+ #--------------------------------------------------------------
+#-----------------------Simulation ----------------------------
+#-------------------------------------------------------------   
 
-
-                      
-            
-                        
-
-
-            
     with main_tabs[2]: 
         simulation_tabs = st.tabs(["Startegy",  "Manual"])
         with simulation_tabs[0]:
@@ -1153,12 +1151,10 @@ def app():
             fig_trend = plot_predicted_trend(timeframes=timeframe)
             st.plotly_chart(fig_trend )
         with tch_col2:
-            _4h_col , daily_col = st.columns(2)
+            _1h_col, _4h_col , daily_col = st.columns(3)
             last_4h_trend = st.session_state.technical_4h.get("last_predicted_trend", 'Key not found') 
             last_daily_trend = st.session_state.technical_daily.get("last_predicted_trend", 'Key not found')
 
-
-            
             with _4h_col:
                 if last_4h_trend == "Neutral":
                     textcolor_4h_trend = "white"
@@ -1183,55 +1179,54 @@ def app():
                 st.markdown(f"<div style='font-size: 14px; color:{ textcolor_daily_trend}; text-align: center; letter-spacing: 2px;'>{last_daily_trend}</div>", unsafe_allow_html=True)
             
 
-       
 #--------------------------------------------------------------
 #-----------------------Combinations ----------------------------
 #-------------------------------------------------------------
-    with main_tabs[4]:
-
-            if st.session_state.most_profitable_df.shape[1] > 1:  # Assuming at least 'Underlying Price' and one profit column exists
-                    most_profitable_df = st.session_state.most_profitable_df
-                    num_combos = most_profitable_df.shape[1]
-                    num_combo_to_show = 10  # Number of columns to show per tab
-                    num_tabs = (num_combos // num_combo_to_show) + (num_combos % num_combo_to_show > 0)
-
-                            # Create tab names based on the number of combinations
-                    tab_names = [f"Combination {i + 1}" for i in range(num_tabs)]
-
-                            # Create the tabs dynamically
-                    combo_tabs = st.tabs(tab_names)
-
-                            # Loop through each tab and display the corresponding data
-                    for i, tab in enumerate(combo_tabs):
-                        with tab:
-                                    # Copy the main DataFrame to avoid modifying original
-                            display_df = most_profitable_df.copy()
-                                    
-                                    # Isolate and remove the 'Underlying Price' column
-                            underlying_price = display_df.pop('Underlying Price')
-
-                                    # Determine the columns to display in this tab
-                            start_col = i * num_combo_to_show
-                            end_col = start_col + num_combo_to_show
-
-                                    # Slice the DataFrame for the current tab.
-                            columns_to_display = display_df.columns[start_col:end_col]
-                                    
-                                    # Create a new DataFrame for display without the 'Underlying Price'
-                            sliced_df = display_df[list(columns_to_display)]
-                                    
-                                    # Insert the 'Underlying Price' column at the front
-                            sliced_df.insert(0, 'Underlying Price', underlying_price)
-
-                                    # Render the DataFrame with Streamlit
-                            styled_results = style_combined_results(sliced_df)  # Pass the full DataFrame
-
-                                    # Render the styled DataFrame in the tab using markdown
-                            st.markdown(styled_results.to_html(escape=False), unsafe_allow_html=True)
-                
-            else:
-                st.warning("No combinations meet the criteria, Press Analyze then Filter button.")
-     
+    # with main_tabs[4]:
+    #
+    #         if st.session_state.most_profitable_df.shape[1] > 1:  # Assuming at least 'Underlying Price' and one profit column exists
+    #                 most_profitable_df = st.session_state.most_profitable_df
+    #                 num_combos = most_profitable_df.shape[1]
+    #                 num_combo_to_show = 10  # Number of columns to show per tab
+    #                 num_tabs = (num_combos // num_combo_to_show) + (num_combos % num_combo_to_show > 0)
+    #
+    #                         # Create tab names based on the number of combinations
+    #                 tab_names = [f"Combination {i + 1}" for i in range(num_tabs)]
+    #
+    #                         # Create the tabs dynamically
+    #                 combo_tabs = st.tabs(tab_names)
+    #
+    #                         # Loop through each tab and display the corresponding data
+    #                 for i, tab in enumerate(combo_tabs):
+    #                     with tab:
+    #                                 # Copy the main DataFrame to avoid modifying original
+    #                         display_df = most_profitable_df.copy()
+    #                                 
+    #                                 # Isolate and remove the 'Underlying Price' column
+    #                         underlying_price = display_df.pop('Underlying Price')
+    #
+    #                                 # Determine the columns to display in this tab
+    #                         start_col = i * num_combo_to_show
+    #                         end_col = start_col + num_combo_to_show
+    #
+    #                                 # Slice the DataFrame for the current tab.
+    #                         columns_to_display = display_df.columns[start_col:end_col]
+    #                                 
+    #                                 # Create a new DataFrame for display without the 'Underlying Price'
+    #                         sliced_df = display_df[list(columns_to_display)]
+    #                                 
+    #                                 # Insert the 'Underlying Price' column at the front
+    #                         sliced_df.insert(0, 'Underlying Price', underlying_price)
+    #
+    #                                 # Render the DataFrame with Streamlit
+    #                         styled_results = style_combined_results(sliced_df)  # Pass the full DataFrame
+    #
+    #                                 # Render the styled DataFrame in the tab using markdown
+    #                         st.markdown(styled_results.to_html(escape=False), unsafe_allow_html=True)
+    #             
+    #         else:
+    #             st.warning("No combinations meet the criteria, Press Analyze then Filter button.")
+    #  
 
 
 def style_combined_results(combined_results):
@@ -1315,6 +1310,7 @@ def style_combined_results(combined_results):
 def initializing_states():
     if 'data_refresh_thread' not in st.session_state:
         st.session_state.data_refresh_thread = None
+    
 
     if 'technical_4h' not in st.session_state:
         st.session_state.technical_4h = None
@@ -1343,6 +1339,8 @@ def initializing_states():
             st.session_state.option_side = "BUY"  # Default side
 
 def technical_analysis():
+
+
     if st.session_state.technical_4h is None:
         analytics_insight_4h = technical_4h.get_technical_data()
         st.session_state.technical_4h  = analytics_insight_4h

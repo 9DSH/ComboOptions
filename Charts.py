@@ -5,242 +5,12 @@ from datetime import datetime , timedelta , timezone
 import numpy as np
 from Analytics import Analytic_processing
 from Calculations import calculate_profit
-
 from concurrent.futures import ThreadPoolExecutor
 
 analytics = Analytic_processing()
 
-def plot_option_profit(results_df, 
-                       combo_df, 
-                       selected_option_name, 
-                       combo_option_name, 
-                       days_ahead_slider,
-                       combo_days_ahead_slider, 
-                       selected_option_side,
-                       combo_option_side, 
-                       breakeven_buy,
-                       breakeven_sell, 
-                       combo_breakeven_buy, 
-                       combo_breakeven_sell):
-    
-    fig = go.Figure()
 
-    # Initialize maximum profit values
-    max_profit_buy = 0
-    max_profit_sell = 0
-    min_profit_buy =0
-    min_profit_sell = 0
-    
-    combo_max_profit_buy = 0
-    combo_max_profit_sell = 0
-    combo_min_profit_buy = 0
-    combo_min_profit_sell = 0
-    
-    # Validate the presence of results_df and combo_df
-    if results_df is not None and not results_df.empty:
-        if f'Day {days_ahead_slider} Profit (BUY)' in results_df.columns:
-            max_profit_buy = max(results_df[f'Day {days_ahead_slider} Profit (BUY)'].max(), 0)
-            min_profit_buy = min(results_df[f'Day {days_ahead_slider} Profit (BUY)'].min(), 0)
-        if f'Day {days_ahead_slider} Profit (SELL)' in results_df.columns:
-            max_profit_sell = max(results_df[f'Day {days_ahead_slider} Profit (SELL)'].max(), 0)
-            min_profit_sell = min(results_df[f'Day {days_ahead_slider} Profit (SELL)'].min(), 0)
 
-    if combo_df is not None and not combo_df.empty:
-        if f'Day {combo_days_ahead_slider} Profit (BUY)' in combo_df.columns:
-            combo_max_profit_buy = max(combo_df[f'Day {combo_days_ahead_slider} Profit (BUY)'].max(), 0)
-            combo_min_profit_buy = min(combo_df[f'Day {combo_days_ahead_slider} Profit (BUY)'].min(), 0)
-        if f'Day {combo_days_ahead_slider} Profit (SELL)' in combo_df.columns:
-            combo_max_profit_sell = max(combo_df[f'Day {combo_days_ahead_slider} Profit (SELL)'].max(), 0)
-            combo_min_profit_sell = min(combo_df[f'Day {combo_days_ahead_slider} Profit (SELL)'].min(), 0)
-
-    # Determine the maximum Y-values for annotations
-    max_buy_value = max(max_profit_buy, combo_max_profit_buy)
-    max_sell_value = max(max_profit_sell, combo_max_profit_sell)
-
-    # Determine the minimum Y-values for annotations
-    min_buy_value = min(min_profit_buy, combo_min_profit_buy)
-    min_sell_value = min(min_profit_sell, combo_min_profit_sell)
-
-    # Create a common function to add traces with appropriate labels
-    def add_traces(df, is_combo, option_side, days_ahead):
-        # Determine the color
-        color = 'yellow' if is_combo else 'red'  # Combo lines in yellow; results_df lines in red
-
-        if option_side == 'BUY':
-            # PnL for BUY
-            fig.add_trace(go.Scatter(
-                x=df['Underlying Price'], 
-                y=df[f'Day {days_ahead} Profit (BUY)'],
-                mode='lines',
-                name=f'PnL {selected_option_name} (BUY)' if not is_combo else f'PnL {combo_option_name} (BUY)',
-                line=dict(color=color, width=2),  # Solid line
-                hovertemplate=(f'{selected_option_name} (BUY)' if not is_combo else f'{combo_option_name} (BUY)') + '<br>' +
-                              '<b>PnL</b>: %{y:.2f}<br>' +
-                              '<extra></extra>'
-            ))
-
-            # Expiration PnL for BUY
-            fig.add_trace(go.Scatter(
-                x=df['Underlying Price'], 
-                y=df['Expiration Profit (BUY)'],
-                mode='lines',
-                name=f'Expiry PnL {selected_option_name} (BUY)' if not is_combo else f'Expiry PnL {combo_option_name} (BUY)',
-                line=dict(color=color, dash='dash'),  # Dashed line
-                hovertemplate=(f'{selected_option_name} (BUY)' if not is_combo else f'{combo_option_name} (BUY)') + '<br>' +
-                              '<b>Expiry PnL</b>: %{y:.2f}<br>' +
-                              '<extra></extra>'
-            ))
-
-            # Breakeven line for BUY from results_df if it's not None
-            if breakeven_buy is not None:
-                fig.add_shape(
-                    type="line",
-                    x0=breakeven_buy,
-                    y0=min_buy_value,
-                    x1=breakeven_buy,
-                    y1=max_buy_value,  # Positioning up to the maximum Y-value
-                    line=dict(color='rgba(255, 0, 0, 0.7)' , width=2, dash="dot")
-                )
-                # Add label for breakeven of results_df
-                fig.add_annotation(
-                    x=breakeven_buy,
-                    y=max_buy_value ,  # Offset above the max Y-value
-                    text=f'Breakeven: {breakeven_buy:.2f}',
-                    showarrow=True,
-                    arrowhead=2,
-                    ax=0,
-                    ay=-10,
-                    font=dict(size=12),  # Set font size to 12 for better visibility
-                    bgcolor='rgba(255, 255, 255, 0)',  # Transparent background
-                    bordercolor='black',
-                    borderwidth=1
-                )
-
-            # Breakeven line for BUY from combo_df if it's not None
-            if combo_breakeven_buy is not None:
-                fig.add_shape(
-                    type="line",
-                    x0=combo_breakeven_buy,
-                    y0=min_buy_value,
-                    x1=combo_breakeven_buy,
-                    y1=max_buy_value,  # Positioning up to the maximum Y-value
-                    line=dict(color="rgba(255, 255, 0, 0.7)", width=2, dash="dot")  # Yellow for combo breakeven
-                )
-                # Add label for breakeven of combo_df
-                fig.add_annotation(
-                    x=combo_breakeven_buy,
-                    y=max_buy_value * 1.10,  # Offset above the max Y-value
-                    text=f'Breakeven: {combo_breakeven_buy:.2f}',
-                    showarrow=True,
-                    arrowhead=2,
-                    ax=0,
-                    ay=-10,
-                    font=dict(size=12),  # Set font size to 12 for better visibility
-                    bgcolor='rgba(255, 255, 255, 0)',  # Transparent background
-                    bordercolor='black',
-                    borderwidth=1
-                )
-
-        elif option_side == 'SELL':
-            # PnL for SELL
-            fig.add_trace(go.Scatter(
-                x=df['Underlying Price'], 
-                y=df[f'Day {days_ahead} Profit (SELL)'],
-                mode='lines',
-                name=f'PnL {selected_option_name} (SELL)' if not is_combo else f'PnL {combo_option_name} (SELL)',
-                line=dict(color=color, width=2),  # Solid line
-                hovertemplate=(f'{selected_option_name} (SELL)' if not is_combo else f'{combo_option_name} (SELL)') + '<br>' +
-                              '<b>PnL</b>: %{y:.2f}<br>' +
-                              '<extra></extra>'
-            ))
-
-            # Expiration PnL for SELL
-            fig.add_trace(go.Scatter(
-                x=df['Underlying Price'], 
-                y=df['Expiration Profit (SELL)'],
-                mode='lines',
-                name=f'Expiry PnL {selected_option_name} (SELL)' if not is_combo else f'Expiry PnL {combo_option_name} (SELL)',
-                line=dict(color=color, dash='dash'),  # Dashed line
-                hovertemplate=(f'{selected_option_name} (SELL)' if not is_combo else f'{combo_option_name} (SELL)') + '<br>' +
-                              '<b>Expiry PnL</b>: %{y:.2f}<br>' +
-                              '<extra></extra>'
-            ))
-
-            # Breakeven line for SELL from results_df if it's not None
-            if breakeven_sell is not None:
-                fig.add_shape(
-                    type="line",
-                    x0=breakeven_sell,
-                    y0=min_sell_value,
-                    x1=breakeven_sell,
-                    y1=max_sell_value,  # Positioning up to the maximum Y-value
-                    line=dict(color='rgba(255, 0, 0, 0.7)' , width=2, dash="dot")
-                )
-                # Add label for breakeven of results_df
-                fig.add_annotation(
-                    x=breakeven_sell,
-                    y=min_sell_value * 0.95,  # Offset above the max Y-value
-                    text=f'Breakeven: {breakeven_sell:.2f}',
-                    showarrow=True,
-                    arrowhead=2,
-                    ax=0,
-                    ay=-10,
-                    font=dict(size=12),  # Set font size to 12 for better visibility
-                    bgcolor='rgba(255, 255, 255, 0)',  # Transparent background
-                    bordercolor='black',
-                    borderwidth=1
-                )
-
-            # Breakeven line for SELL from combo_df if it's not None
-            if combo_breakeven_sell is not None:
-                fig.add_shape(
-                    type="line",
-                    x0=combo_breakeven_sell,
-                    y0=min_sell_value,
-                    x1=combo_breakeven_sell,
-                    y1=max_sell_value,  # Positioning up to the maximum Y-value
-                    line=dict(color="rgba(255, 255, 0, 0.7)", width=2, dash="dot")
-                )
-                # Add label for breakeven of combo_df
-                fig.add_annotation(
-                    x=combo_breakeven_sell,
-                    y=max_sell_value * 0.95,  # Offset above the max Y-value
-                    text=f'Breakeven: {combo_breakeven_sell:.2f}',
-                    showarrow=True,
-                    arrowhead=2,
-                    ax=0,
-                    ay=-10,
-                    font=dict(size=12),  # Set font size to 12 for better visibility
-                    bgcolor='rgba(255, 255, 255, 0)',  # Transparent background
-                    bordercolor='black',
-                    borderwidth=1
-                )
-
-    # Add traces for Buy Options from the combo_df only if combo_df is not empty
-    if combo_option_side == "BUY" and combo_df is not None and not combo_df.empty:
-        add_traces(combo_df, True, 'BUY', combo_days_ahead_slider)
-
-    # Add traces for Sell Options from the combo_df only if combo_df is not empty
-    if combo_option_side == "SELL" and combo_df is not None and not combo_df.empty:
-        add_traces(combo_df, True, 'SELL', combo_days_ahead_slider)
-
-    # Add traces for Buy Options from the results_df only if results_df is not empty
-    if selected_option_side == "BUY" and results_df is not None and not results_df.empty:
-        add_traces(results_df, False, 'BUY', days_ahead_slider)
-
-    # Add traces for Sell Options from the results_df only if results_df is not empty
-    if selected_option_side == "SELL" and results_df is not None and not results_df.empty:
-        add_traces(results_df, False, 'SELL', days_ahead_slider)
-
-    # Update layout for the figure
-    fig.update_layout(
-        xaxis_title='Underlying Price',
-        yaxis_title='Profit',
-        legend_title='Options',
-        hovermode='x unified',  # Aligns hover information across multiple traces
-    )
-
-    return fig
 def plot_stacked_calls_puts(df):
     """
     Plot a stacked column chart of total Calls and total Puts against Strike Price,
@@ -499,6 +269,7 @@ def plot_public_profit_sums(summed_df):
     )
 
     return fig
+
 def plot_most_traded_instruments(most_traded):
     """
     Plots a pie chart of the most traded instruments with hover info showing
@@ -713,7 +484,13 @@ def plot_price_vs_entry_date(df):
     # Show the plot
     return fig
 
-def plot_identified_whale_trades(df, min_size=5, max_size=50, min_opacity=0.3, max_opacity=1.0, entry_value_threshold=None, filter_type=None):
+def plot_identified_whale_trades(df, 
+                                 min_size=5, 
+                                 max_size=50, 
+                                 min_opacity=0.3, 
+                                 max_opacity=1.0, 
+                                 entry_value_threshold=None, 
+                                 filter_type=None):
     if filter_type == "Entry Value":
         filter_type_str = 'Entry Value'
     else:
@@ -941,7 +718,6 @@ def plot_expiration_profit(strategy_data, chart_type, trade_option_details):
 
     return fig
 
-# Function to calculate profits and create a plot
 def plot_all_days_profits(group , chart_type , trade_option_details):
     # Calculate the minimum and maximum time to expiration in days for existing positions
 
@@ -1068,7 +844,6 @@ def plot_all_days_profits(group , chart_type , trade_option_details):
 
     return fig_profit
 
-
 def plot_public_profits(strategy_data , chart_type , trade_option_details):
                                 # Calculate profits using multithreading
                         
@@ -1112,7 +887,6 @@ def plot_top_strikes_pie_chart(top_strikes):
     # Update the layout of the chart
     
     return fig
-
 
 def plot_hourly_activity_radar(hourly_activity):
     """
@@ -1162,8 +936,6 @@ def plot_hourly_activity_radar(hourly_activity):
 
     return fig
 
-
-
 def plot_most_strategy_bar_chart(strategy_df_copy):
     """
     Plots a horizontal bar chart of the total size from the strategy DataFrame using Plotly's graph_objects.
@@ -1188,7 +960,6 @@ def plot_most_strategy_bar_chart(strategy_df_copy):
         )
     
     return fig
-
 
 def plot_hourly_activity(hourly_activity):
     """
@@ -1222,7 +993,6 @@ def plot_hourly_activity(hourly_activity):
     )
 
     return fig
-
 
 def plot_predicted_trend(timeframes):
     """
@@ -1292,4 +1062,234 @@ def plot_predicted_trend(timeframes):
 
     return fig
 
+def plot_option_profit(results_df, 
+                       combo_df, 
+                       selected_option_name, 
+                       combo_option_name, 
+                       days_ahead_slider,
+                       combo_days_ahead_slider, 
+                       selected_option_side,
+                       combo_option_side, 
+                       breakeven_buy,
+                       breakeven_sell, 
+                       combo_breakeven_buy, 
+                       combo_breakeven_sell):
+    
+    fig = go.Figure()
 
+    # Initialize maximum profit values
+    max_profit_buy = 0
+    max_profit_sell = 0
+    min_profit_buy =0
+    min_profit_sell = 0
+    
+    combo_max_profit_buy = 0
+    combo_max_profit_sell = 0
+    combo_min_profit_buy = 0
+    combo_min_profit_sell = 0
+    
+    # Validate the presence of results_df and combo_df
+    if results_df is not None and not results_df.empty:
+        if f'Day {days_ahead_slider} Profit (BUY)' in results_df.columns:
+            max_profit_buy = max(results_df[f'Day {days_ahead_slider} Profit (BUY)'].max(), 0)
+            min_profit_buy = min(results_df[f'Day {days_ahead_slider} Profit (BUY)'].min(), 0)
+        if f'Day {days_ahead_slider} Profit (SELL)' in results_df.columns:
+            max_profit_sell = max(results_df[f'Day {days_ahead_slider} Profit (SELL)'].max(), 0)
+            min_profit_sell = min(results_df[f'Day {days_ahead_slider} Profit (SELL)'].min(), 0)
+
+    if combo_df is not None and not combo_df.empty:
+        if f'Day {combo_days_ahead_slider} Profit (BUY)' in combo_df.columns:
+            combo_max_profit_buy = max(combo_df[f'Day {combo_days_ahead_slider} Profit (BUY)'].max(), 0)
+            combo_min_profit_buy = min(combo_df[f'Day {combo_days_ahead_slider} Profit (BUY)'].min(), 0)
+        if f'Day {combo_days_ahead_slider} Profit (SELL)' in combo_df.columns:
+            combo_max_profit_sell = max(combo_df[f'Day {combo_days_ahead_slider} Profit (SELL)'].max(), 0)
+            combo_min_profit_sell = min(combo_df[f'Day {combo_days_ahead_slider} Profit (SELL)'].min(), 0)
+
+    # Determine the maximum Y-values for annotations
+    max_buy_value = max(max_profit_buy, combo_max_profit_buy)
+    max_sell_value = max(max_profit_sell, combo_max_profit_sell)
+
+    # Determine the minimum Y-values for annotations
+    min_buy_value = min(min_profit_buy, combo_min_profit_buy)
+    min_sell_value = min(min_profit_sell, combo_min_profit_sell)
+
+    # Create a common function to add traces with appropriate labels
+    def add_traces(df, is_combo, option_side, days_ahead):
+        # Determine the color
+        color = 'yellow' if is_combo else 'red'  # Combo lines in yellow; results_df lines in red
+
+        if option_side == 'BUY':
+            # PnL for BUY
+            fig.add_trace(go.Scatter(
+                x=df['Underlying Price'], 
+                y=df[f'Day {days_ahead} Profit (BUY)'],
+                mode='lines',
+                name=f'PnL {selected_option_name} (BUY)' if not is_combo else f'PnL {combo_option_name} (BUY)',
+                line=dict(color=color, width=2),  # Solid line
+                hovertemplate=(f'{selected_option_name} (BUY)' if not is_combo else f'{combo_option_name} (BUY)') + '<br>' +
+                              '<b>PnL</b>: %{y:.2f}<br>' +
+                              '<extra></extra>'
+            ))
+
+            # Expiration PnL for BUY
+            fig.add_trace(go.Scatter(
+                x=df['Underlying Price'], 
+                y=df['Expiration Profit (BUY)'],
+                mode='lines',
+                name=f'Expiry PnL {selected_option_name} (BUY)' if not is_combo else f'Expiry PnL {combo_option_name} (BUY)',
+                line=dict(color=color, dash='dash'),  # Dashed line
+                hovertemplate=(f'{selected_option_name} (BUY)' if not is_combo else f'{combo_option_name} (BUY)') + '<br>' +
+                              '<b>Expiry PnL</b>: %{y:.2f}<br>' +
+                              '<extra></extra>'
+            ))
+
+            # Breakeven line for BUY from results_df if it's not None
+            if breakeven_buy is not None:
+                fig.add_shape(
+                    type="line",
+                    x0=breakeven_buy,
+                    y0=min_buy_value,
+                    x1=breakeven_buy,
+                    y1=max_buy_value,  # Positioning up to the maximum Y-value
+                    line=dict(color='rgba(255, 0, 0, 0.7)' , width=2, dash="dot")
+                )
+                # Add label for breakeven of results_df
+                fig.add_annotation(
+                    x=breakeven_buy,
+                    y=max_buy_value ,  # Offset above the max Y-value
+                    text=f'Breakeven: {breakeven_buy:.2f}',
+                    showarrow=True,
+                    arrowhead=2,
+                    ax=0,
+                    ay=-10,
+                    font=dict(size=12),  # Set font size to 12 for better visibility
+                    bgcolor='rgba(255, 255, 255, 0)',  # Transparent background
+                    bordercolor='black',
+                    borderwidth=1
+                )
+
+            # Breakeven line for BUY from combo_df if it's not None
+            if combo_breakeven_buy is not None:
+                fig.add_shape(
+                    type="line",
+                    x0=combo_breakeven_buy,
+                    y0=min_buy_value,
+                    x1=combo_breakeven_buy,
+                    y1=max_buy_value,  # Positioning up to the maximum Y-value
+                    line=dict(color="rgba(255, 255, 0, 0.7)", width=2, dash="dot")  # Yellow for combo breakeven
+                )
+                # Add label for breakeven of combo_df
+                fig.add_annotation(
+                    x=combo_breakeven_buy,
+                    y=max_buy_value * 1.10,  # Offset above the max Y-value
+                    text=f'Breakeven: {combo_breakeven_buy:.2f}',
+                    showarrow=True,
+                    arrowhead=2,
+                    ax=0,
+                    ay=-10,
+                    font=dict(size=12),  # Set font size to 12 for better visibility
+                    bgcolor='rgba(255, 255, 255, 0)',  # Transparent background
+                    bordercolor='black',
+                    borderwidth=1
+                )
+
+        elif option_side == 'SELL':
+            # PnL for SELL
+            fig.add_trace(go.Scatter(
+                x=df['Underlying Price'], 
+                y=df[f'Day {days_ahead} Profit (SELL)'],
+                mode='lines',
+                name=f'PnL {selected_option_name} (SELL)' if not is_combo else f'PnL {combo_option_name} (SELL)',
+                line=dict(color=color, width=2),  # Solid line
+                hovertemplate=(f'{selected_option_name} (SELL)' if not is_combo else f'{combo_option_name} (SELL)') + '<br>' +
+                              '<b>PnL</b>: %{y:.2f}<br>' +
+                              '<extra></extra>'
+            ))
+
+            # Expiration PnL for SELL
+            fig.add_trace(go.Scatter(
+                x=df['Underlying Price'], 
+                y=df['Expiration Profit (SELL)'],
+                mode='lines',
+                name=f'Expiry PnL {selected_option_name} (SELL)' if not is_combo else f'Expiry PnL {combo_option_name} (SELL)',
+                line=dict(color=color, dash='dash'),  # Dashed line
+                hovertemplate=(f'{selected_option_name} (SELL)' if not is_combo else f'{combo_option_name} (SELL)') + '<br>' +
+                              '<b>Expiry PnL</b>: %{y:.2f}<br>' +
+                              '<extra></extra>'
+            ))
+
+            # Breakeven line for SELL from results_df if it's not None
+            if breakeven_sell is not None:
+                fig.add_shape(
+                    type="line",
+                    x0=breakeven_sell,
+                    y0=min_sell_value,
+                    x1=breakeven_sell,
+                    y1=max_sell_value,  # Positioning up to the maximum Y-value
+                    line=dict(color='rgba(255, 0, 0, 0.7)' , width=2, dash="dot")
+                )
+                # Add label for breakeven of results_df
+                fig.add_annotation(
+                    x=breakeven_sell,
+                    y=min_sell_value * 0.95,  # Offset above the max Y-value
+                    text=f'Breakeven: {breakeven_sell:.2f}',
+                    showarrow=True,
+                    arrowhead=2,
+                    ax=0,
+                    ay=-10,
+                    font=dict(size=12),  # Set font size to 12 for better visibility
+                    bgcolor='rgba(255, 255, 255, 0)',  # Transparent background
+                    bordercolor='black',
+                    borderwidth=1
+                )
+
+            # Breakeven line for SELL from combo_df if it's not None
+            if combo_breakeven_sell is not None:
+                fig.add_shape(
+                    type="line",
+                    x0=combo_breakeven_sell,
+                    y0=min_sell_value,
+                    x1=combo_breakeven_sell,
+                    y1=max_sell_value,  # Positioning up to the maximum Y-value
+                    line=dict(color="rgba(255, 255, 0, 0.7)", width=2, dash="dot")
+                )
+                # Add label for breakeven of combo_df
+                fig.add_annotation(
+                    x=combo_breakeven_sell,
+                    y=max_sell_value * 0.95,  # Offset above the max Y-value
+                    text=f'Breakeven: {combo_breakeven_sell:.2f}',
+                    showarrow=True,
+                    arrowhead=2,
+                    ax=0,
+                    ay=-10,
+                    font=dict(size=12),  # Set font size to 12 for better visibility
+                    bgcolor='rgba(255, 255, 255, 0)',  # Transparent background
+                    bordercolor='black',
+                    borderwidth=1
+                )
+
+    # Add traces for Buy Options from the combo_df only if combo_df is not empty
+    if combo_option_side == "BUY" and combo_df is not None and not combo_df.empty:
+        add_traces(combo_df, True, 'BUY', combo_days_ahead_slider)
+
+    # Add traces for Sell Options from the combo_df only if combo_df is not empty
+    if combo_option_side == "SELL" and combo_df is not None and not combo_df.empty:
+        add_traces(combo_df, True, 'SELL', combo_days_ahead_slider)
+
+    # Add traces for Buy Options from the results_df only if results_df is not empty
+    if selected_option_side == "BUY" and results_df is not None and not results_df.empty:
+        add_traces(results_df, False, 'BUY', days_ahead_slider)
+
+    # Add traces for Sell Options from the results_df only if results_df is not empty
+    if selected_option_side == "SELL" and results_df is not None and not results_df.empty:
+        add_traces(results_df, False, 'SELL', days_ahead_slider)
+
+    # Update layout for the figure
+    fig.update_layout(
+        xaxis_title='Underlying Price',
+        yaxis_title='Profit',
+        legend_title='Options',
+        hovermode='x unified',  # Aligns hover information across multiple traces
+    )
+
+    return fig
