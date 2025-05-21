@@ -9,3 +9,4 @@ requests
 aiohttp
 openai
 yfinance
+xgboost
