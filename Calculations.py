@@ -240,8 +240,9 @@ def get_most_traded_instruments(df):
                                                            'Expiration Date', 'Last Price (USD)', 
                                                            'open_interest', 'total traded volume', 
                                                            'monetary volume'], errors='ignore')
-    new_order = ['Instrument', 'Ask Price (USD)', 'Bid Price (USD)', 'Delta', 'Theta', 'Vega', 'Ask IV', 'Bid IV']
-    top_options_chains = top_options_chains[new_order]
+    new_order = ['Instrument', 'Ask Price (USD)', 'Bid Price (USD)', 'Delta', 'Theta', 'Vega', 'Ask IV', 'Bid IV' , 'Probability (%)']
+    if top_options_chains is not None:
+        top_options_chains = top_options_chains[new_order]
 
     return combined_results, top_options_chains
 

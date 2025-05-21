@@ -115,13 +115,17 @@ class TechnicalAnalysis:
         resistance = sorted([p for p in unique_price_actions if p > current_price])[:3]
         support = sorted([p for p in unique_price_actions if p < current_price])[-3:]
 
+        # Get the latest price action
+        active_price_action = df['price_action'].iat[-1]
+
         return {
             'unique_price_actions': unique_price_actions.tolist(),
             'nearby_price_actions': nearby.tolist(),
             'last_predicted_trend': last_predicted_trend,
             'current_price': current_price,
             'resistance': resistance,
-            'support': support
+            'support': support,
+            'active_price_action': active_price_action 
         }
     
     def fetch_historical_data(self):

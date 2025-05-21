@@ -110,6 +110,48 @@ class Fetching_data:
             return options_df['Instrument'].tolist() if not options_df.empty else []
 
         return []
+    
+    def get_instrument_probabilities(self):
+        """
+        Returns a DataFrame with columns ['Instrument', 'Probability (%)'] 
+        and the top instrument based on probability within a price range.
+
+        Parameters:
+        options_data (pd.DataFrame): DataFrame containing options data with Probability (%).
+        current_price (float): The current price around which to filter instruments.
+        price_range (float): The range around the current price to filter instruments.
+
+        Returns:
+        filtered_df (pd.DataFrame): DataFrame with 'Instrument' and 'Probability (%)'.
+        top_instrument (str): The instrument with the highest probability in the given range.
+        """
+        current_price, highest, lowest = get_btcusd_price()
+        if current_price is None or current_price == 0:
+            current_price = 100000
+        
+        # Calculate lower and upper bounds for filtering
+        price_range=50000
+        lower_bound = current_price - price_range
+        upper_bound = current_price + price_range
+        
+
+        # Filter the DataFrame based on the specified range
+        if self.options_data.empty:
+            self.load_from_csv(data_type="options_data")
+
+        options_data = self.options_data.copy()    
+        all_probabilities_df = options_data[
+            (options_data['Strike Price'] >= lower_bound) & 
+            (options_data['Strike Price'] <= upper_bound)
+        ][['Instrument', 'Probability (%)']]
+        
+        # Sort filtered DataFrame by Probability (%) in descending order
+        all_probabilities_df.sort_values(by='Probability (%)', ascending=False, inplace=True)
+
+        # Get the top instrument
+        top_probability_instrument = all_probabilities_df.iloc[0]['Instrument'] if not all_probabilities_df.empty else None
+
+        return all_probabilities_df, top_probability_instrument
 
     def fetch_option_data(self, option_symbol=None):
         """Fetch detailed option data for either a specific symbol or a list of symbols using the loaded options DataFrame."""

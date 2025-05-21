@@ -71,8 +71,8 @@ def app():
     upper_strike_filter = int(btc_price) + 30000
     lower_strike_filter = abs(int(btc_price) - 30000)
 
-    title_row = st.container()
-    with title_row:
+    technical_row = st.container()
+    with technical_row:
         
         padding_colomn , Technical_bar_column, col3 = st.columns([0.5, 5, 0.5])  # Adjust ratio for centering
         with Technical_bar_column:
@@ -217,11 +217,11 @@ def app():
     ##------------------------- MAIN TABS ---------------------------
     #-----------------------------------------------------------------
         
-
+    
+    main_tabs = st.tabs(["Market Watch",  "Live Trade Option", "Simulation", "Technical Analysis" ])
 #------------------------------------------------------------
 #-----------------------Market Watch ------------------
 #------------------------------------------------------------
-    main_tabs = st.tabs(["Market Watch",  "Live Trade Option", "Simulation", "Technical Analysis" ])
     with main_tabs[0]: 
              # Initialize trades variable outside of any if conditions
             market_screener_df = st.session_state.public_trades_df
@@ -760,7 +760,7 @@ def app():
                 st.warning("No trades available for the selected options, wait while app is fetching data...")
 
 #------------------------------------------------------------------------------------
-#----------------------------------------Trade an Option -------------------------------------
+#----------------------------------------Trade Live Option -------------------------------------
 #--------------------------------------------------------------------------------------
 
     with main_tabs[1]:
@@ -843,6 +843,7 @@ def app():
                             bid_price = option_details['Bid Price (USD)'].values[0]
                             ask_price = option_details['Ask Price (USD)'].values[0]
                             strike_price = option_details['Strike Price'].values[0]
+                            probability = option_details['Probability (%)'].values[0]
                             premium_buy = ask_price * quantity
                             premium_sell = bid_price * quantity
 
@@ -902,6 +903,10 @@ def app():
                                                     <div style='border:1px solid gray;padding:10px;border-radius:5px; text-align: center;'>
                                                         <div style='font-size: smaller; color: gray;'>Time To Expiration</div>
                                                         {time_to_expiration_days}
+                                                    </div>
+                                                    <div style='border:1px solid gray;padding:10px;border-radius:5px; text-align: center;'>
+                                                        <div style='font-size: smaller; color: gray;'>Probability (%)</div>
+                                                        {probability:.0f}
                                                     </div>
                                                 </div>
                                                 </div>
@@ -1145,39 +1150,61 @@ def app():
 #-----------------------Technical analysis ----------------------------
 #-------------------------------------------------------------   
     with main_tabs[3]: 
-        left_padding, tch_col1, tch_col2 = st.columns([0.1,0.4 ,0.2])
+        tch_col1, tch_col2 = st.columns([0.4,0.2])
+        with tch_col1:
+            padding , title, trend_column , price_action_column= st.columns([0.2, 0.1,0.2,0.2])
+
+            last_4h_trend = st.session_state.technical_4h.get("last_predicted_trend", 'Key not found') 
+            last_daily_trend = st.session_state.technical_daily.get("last_predicted_trend", 'Key not found')
+            last_4h_price_action = st.session_state.technical_4h.get("active_price_action", 'Key not found')
+            last_daily_price_action = st.session_state.technical_daily.get("active_price_action", 'Key not found')
+            if last_4h_trend == "Neutral":
+                    textcolor_4h_trend = "white"
+            elif last_4h_trend == "Bullish":
+                    textcolor_4h_trend = "#90EE90" 
+            elif last_4h_trend == "Bearish":
+                    textcolor_4h_trend = "#f54b4b"
+            else:
+                    textcolor_4h_trend = "white"  # Default color if _4h_trend is None or any other value
+
+            if last_daily_trend == "Neutral":
+                    textcolor_daily_trend = "white"
+            elif last_daily_trend == "Bullish":
+                     textcolor_daily_trend = "#90EE90"
+            elif last_daily_trend == "Bearish":
+                     textcolor_daily_trend = "#f54b4b"
+            else:
+                     textcolor_daily_trend = "white"  # Default color if _4h_trend is None or any other value
+
+            with title: 
+                st.markdown(f"<div style='font-size: 14px; color:gray; text-align: right; margin-top:100px;'>Timeframe</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='font-size: 14px; color:gray; text-align: right;margin-top:15px; '>4 Hours</div>", unsafe_allow_html=True)
+
+            with trend_column:
+                
+                st.markdown(f"<div style='font-size: 14px; color:gray; text-align: center; margin-top:100px;'>Trend</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='font-size: 14px; color:{textcolor_4h_trend}; text-align: center; letter-spacing: 2px;margin-top:15px;'>{last_4h_trend}</div>", unsafe_allow_html=True)
+
+            with title:
+                st.markdown(f"<div style='font-size: 14px; color:gray; text-align: right; margin-top:5px;'>Daily</div>", unsafe_allow_html=True)  
+            with trend_column:  
+                st.markdown(f"<div style='font-size: 14px; color:{ textcolor_daily_trend}; text-align: center; letter-spacing: 2px;margin-top:5px;'>{last_daily_trend}</div>", unsafe_allow_html=True)
+            with price_action_column:
+                st.markdown(f"<div style='font-size: 14px; color:gray; text-align: left; margin-top:100px;'>Active Price Action</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='font-size: 14px; color:white; text-align: left; letter-spacing: 2px;margin-top:15px;'>{last_4h_price_action:.0f}</div>", unsafe_allow_html=True)
+                
+                st.markdown(f"<div style='font-size: 14px; color:white; text-align: left; letter-spacing: 2px;margin-top:5px;'>{last_daily_price_action:.0f}</div>", unsafe_allow_html=True)
+
+        with tch_col2:
+            all_probabilities_df, top_probability_instrument = fetch_data.get_instrument_probabilities()
+            st.dataframe(all_probabilities_df, use_container_width=True, hide_index=True)
+            
+        st.markdown("---")
+        left_padding, tch_col1, right_padding = st.columns([0.1,0.4 ,0.1])
         with tch_col1:
             timeframe = ["4h", "Daily"]
             fig_trend = plot_predicted_trend(timeframes=timeframe)
-            st.plotly_chart(fig_trend )
-        with tch_col2:
-            _1h_col, _4h_col , daily_col = st.columns(3)
-            last_4h_trend = st.session_state.technical_4h.get("last_predicted_trend", 'Key not found') 
-            last_daily_trend = st.session_state.technical_daily.get("last_predicted_trend", 'Key not found')
-
-            with _4h_col:
-                if last_4h_trend == "Neutral":
-                    textcolor_4h_trend = "white"
-                elif last_4h_trend == "Bullish":
-                    textcolor_4h_trend = "#90EE90"
-                elif last_4h_trend == "Bearish":
-                    textcolor_4h_trend = "#f54b4b"
-                else:
-                    textcolor_4h_trend = "white"  # Default color if _4h_trend is None or any other value
-                st.markdown(f"<div style='font-size: 14px; color:gray; text-align: center; margin-top:200px;'>4H Trend</div>", unsafe_allow_html=True)
-                st.markdown(f"<div style='font-size: 14px; color:{textcolor_4h_trend}; text-align: center; letter-spacing: 2px;'>{last_4h_trend}</div>", unsafe_allow_html=True)
-            with daily_col:
-                if last_daily_trend == "Neutral":
-                    textcolor_daily_trend = "white"
-                elif last_daily_trend == "Bullish":
-                     textcolor_daily_trend = "#90EE90"
-                elif last_daily_trend == "Bearish":
-                     textcolor_daily_trend = "#f54b4b"
-                else:
-                     textcolor_daily_trend = "white"  # Default color if _4h_trend is None or any other value
-                st.markdown(f"<div style='font-size: 14px; color:gray; text-align: center;margin-top:200px;'>Daily Trend</div>", unsafe_allow_html=True)
-                st.markdown(f"<div style='font-size: 14px; color:{ textcolor_daily_trend}; text-align: center; letter-spacing: 2px;'>{last_daily_trend}</div>", unsafe_allow_html=True)
-            
+            st.plotly_chart(fig_trend )    
 
 #--------------------------------------------------------------
 #-----------------------Combinations ----------------------------
