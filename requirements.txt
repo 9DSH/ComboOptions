@@ -11,3 +11,4 @@ openai
 yfinance
 xgboost
 lightgbm
+skopt
