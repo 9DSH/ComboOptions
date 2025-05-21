@@ -1197,6 +1197,7 @@ def app():
 
         with tch_col2:
             all_probabilities_df, top_probability_instrument = fetch_data.get_instrument_probabilities()
+            all_probabilities_df = all_probabilities_df.dropna()
             st.dataframe(all_probabilities_df, use_container_width=True, hide_index=True)
             
         st.markdown("---")
