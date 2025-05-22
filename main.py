@@ -547,11 +547,11 @@ def app():
                                 # Create a list of strategy labels for the selectbox
                                 def format_value(value):
                                     if value > 1000000:
-                                        return f"{value/1000000:.0f}M"
+                                        return f"{value/1000000:.1f}M"
                                     elif value > 1000:
-                                        return f"{value/1000:.0f}k"
+                                        return f"{value/1000:.1f}k"
                                     else:
-                                        return f"{value:,.0f}"
+                                        return f"{value:,.1f}"
                                     
                                 def format_date(expiration_date_str):
                                     # If it's already a datetime object, just format it
@@ -997,7 +997,7 @@ def app():
                                     sim_vega = sim_option_details['Vega'].values[0]
                                     sim_bid_iv = sim_option_details['Bid IV'].values[0]
                                     sim_ask_iv = sim_option_details['Ask IV'].values[0]
-                                    
+                                    sim_probability = sim_option_details['Probability (%)'].values[0]
                                     sim_side = side
                                     sim_option_details.loc[:, 'Side'] = side
 
@@ -1049,6 +1049,10 @@ def app():
                                                 <div style='border:1px solid gray;padding:10px;border-radius:5px; text-align: center;'>
                                                     <div style='font-size: x-small; color: gray;'>Side</div>
                                                     {sim_side}
+                                                </div>
+                                                <div style='border:1px solid gray;padding:10px;border-radius:5px; text-align: center;'>
+                                                    <div style='font-size: x-small; color: gray;'>Probability</div>
+                                                    {sim_probability }
                                                 </div>
                                             </div>
                                             """, 
@@ -1150,55 +1154,91 @@ def app():
 #-----------------------Technical analysis ----------------------------
 #-------------------------------------------------------------   
     with main_tabs[3]: 
-        tch_col1, tch_col2 = st.columns([0.4,0.2])
-        with tch_col1:
-            padding , title, trend_column , price_action_column= st.columns([0.2, 0.1,0.2,0.2])
 
-            last_4h_trend = st.session_state.technical_4h.get("last_predicted_trend", 'Key not found') 
-            last_daily_trend = st.session_state.technical_daily.get("last_predicted_trend", 'Key not found')
-            last_4h_price_action = st.session_state.technical_4h.get("active_price_action", 'Key not found')
-            last_daily_price_action = st.session_state.technical_daily.get("active_price_action", 'Key not found')
-            if last_4h_trend == "Neutral":
-                    textcolor_4h_trend = "white"
-            elif last_4h_trend == "Bullish":
-                    textcolor_4h_trend = "#90EE90" 
-            elif last_4h_trend == "Bearish":
-                    textcolor_4h_trend = "#f54b4b"
-            else:
-                    textcolor_4h_trend = "white"  # Default color if _4h_trend is None or any other value
+        trend_row = st.container()
+        with trend_row:
+            trend_col1 , trend_col2, trend_col3 = st.columns([0.2,0.4,0.2])
+            with trend_col2:
+                padding , title, trend_column , price_action_column= st.columns([0.1, 0.1,0.2,0.2])
 
-            if last_daily_trend == "Neutral":
-                    textcolor_daily_trend = "white"
-            elif last_daily_trend == "Bullish":
-                     textcolor_daily_trend = "#90EE90"
-            elif last_daily_trend == "Bearish":
-                     textcolor_daily_trend = "#f54b4b"
-            else:
-                     textcolor_daily_trend = "white"  # Default color if _4h_trend is None or any other value
+                last_4h_trend = st.session_state.technical_4h.get("last_predicted_trend", 'Key not found') 
+                last_daily_trend = st.session_state.technical_daily.get("last_predicted_trend", 'Key not found')
+                last_4h_price_action = st.session_state.technical_4h.get("active_price_action", 'Key not found')
+                last_daily_price_action = st.session_state.technical_daily.get("active_price_action", 'Key not found')
+                if last_4h_trend == "Neutral":
+                        textcolor_4h_trend = "white"
+                elif last_4h_trend == "Bullish":
+                        textcolor_4h_trend = "#90EE90" 
+                elif last_4h_trend == "Bearish":
+                        textcolor_4h_trend = "#f54b4b"
+                else:
+                        textcolor_4h_trend = "white"  # Default color if _4h_trend is None or any other value
 
-            with title: 
-                st.markdown(f"<div style='font-size: 14px; color:gray; text-align: right; margin-top:100px;'>Timeframe</div>", unsafe_allow_html=True)
-                st.markdown(f"<div style='font-size: 14px; color:gray; text-align: right;margin-top:15px; '>4 Hours</div>", unsafe_allow_html=True)
+                if last_daily_trend == "Neutral":
+                        textcolor_daily_trend = "white"
+                elif last_daily_trend == "Bullish":
+                        textcolor_daily_trend = "#90EE90"
+                elif last_daily_trend == "Bearish":
+                        textcolor_daily_trend = "#f54b4b"
+                else:
+                        textcolor_daily_trend = "white"  # Default color if _4h_trend is None or any other value
 
-            with trend_column:
-                
-                st.markdown(f"<div style='font-size: 14px; color:gray; text-align: center; margin-top:100px;'>Trend</div>", unsafe_allow_html=True)
-                st.markdown(f"<div style='font-size: 14px; color:{textcolor_4h_trend}; text-align: center; letter-spacing: 2px;margin-top:15px;'>{last_4h_trend}</div>", unsafe_allow_html=True)
+                with title: 
+                    st.markdown(f"<div style='font-size: 14px; color:gray; text-align: right; margin-top:20px;'>Timeframe</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='font-size: 14px; color:gray; text-align: right;margin-top:15px; '>4 Hours</div>", unsafe_allow_html=True)
 
-            with title:
-                st.markdown(f"<div style='font-size: 14px; color:gray; text-align: right; margin-top:5px;'>Daily</div>", unsafe_allow_html=True)  
-            with trend_column:  
-                st.markdown(f"<div style='font-size: 14px; color:{ textcolor_daily_trend}; text-align: center; letter-spacing: 2px;margin-top:5px;'>{last_daily_trend}</div>", unsafe_allow_html=True)
-            with price_action_column:
-                st.markdown(f"<div style='font-size: 14px; color:gray; text-align: left; margin-top:100px;'>Active Price Action</div>", unsafe_allow_html=True)
-                st.markdown(f"<div style='font-size: 14px; color:white; text-align: left; letter-spacing: 2px;margin-top:15px;'>{last_4h_price_action:.0f}</div>", unsafe_allow_html=True)
-                
-                st.markdown(f"<div style='font-size: 14px; color:white; text-align: left; letter-spacing: 2px;margin-top:5px;'>{last_daily_price_action:.0f}</div>", unsafe_allow_html=True)
+                with trend_column:
+                    
+                    st.markdown(f"<div style='font-size: 14px; color:gray; text-align: center; margin-top:20px;'>Trend</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='font-size: 14px; color:{textcolor_4h_trend}; text-align: center; letter-spacing: 2px;margin-top:15px;'>{last_4h_trend}</div>", unsafe_allow_html=True)
 
+                with title:
+                    st.markdown(f"<div style='font-size: 14px; color:gray; text-align: right; margin-top:5px;'>Daily</div>", unsafe_allow_html=True)  
+                with trend_column:  
+                    st.markdown(f"<div style='font-size: 14px; color:{ textcolor_daily_trend}; text-align: center; letter-spacing: 2px;margin-top:5px;'>{last_daily_trend}</div>", unsafe_allow_html=True)
+                with price_action_column:
+                    st.markdown(f"<div style='font-size: 14px; color:gray; text-align: left; margin-top:20px;'>Active Price Action</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='font-size: 14px; color:white; text-align: left; letter-spacing: 2px;margin-top:15px;'>{last_4h_price_action:.0f}</div>", unsafe_allow_html=True)
+                    
+                    st.markdown(f"<div style='font-size: 14px; color:white; text-align: left; letter-spacing: 2px;margin-top:5px;'>{last_daily_price_action:.0f}</div>", unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        
+        all_probabilities_df, top_probability_instrument = fetch_data.get_instrument_probabilities()
+        
+        tch_leftpadding, tch_col2, prob_padding,  tch_col3 ,tch_rightpadding = st.columns([0.2, 0.3,0.05, 0.4, 0.2])
         with tch_col2:
-            all_probabilities_df, top_probability_instrument = fetch_data.get_instrument_probabilities()
+            prob_filter_column_1 , prob_filter_column_2  = st.columns(2)
+
+            with prob_filter_column_1:
+                prob_expiration = st.multiselect(label="Expiration Date", options=sorted_market_available_dates, key="prob_expiration")
+            
+            with prob_filter_column_2:
+                prob_selected_strike_prices = st.multiselect(label="Strike Price", options=sorted_strikes , key="prob_strike_price")
+
+            
+            # Check if any expiration dates are selected
+            if prob_expiration:
+                # Formatting selected expiration dates correctly to match the required format in instrument names
+                prob_expiration_format = [date.strftime("%#d%b%y").upper()  for date in pd.to_datetime(prob_expiration)]
+                all_probabilities_df = all_probabilities_df[all_probabilities_df['Instrument'].str.contains('|'.join(prob_expiration_format))]
+            else:
+                # If no expiration date is selected, keep the DataFrame as is or handle it accordingly
+                pass  # (or set all_probabilities_df to an empty DataFrame, if needed)
+
+            if prob_selected_strike_prices:
+                    strike_price_strs = [str(int(price)) for price in prob_selected_strike_prices] 
+                    all_probabilities_df = all_probabilities_df[all_probabilities_df['Instrument'].str.contains('|'.join(strike_price_strs))]
+
             all_probabilities_df = all_probabilities_df.dropna()
             st.dataframe(all_probabilities_df, use_container_width=True, hide_index=True)
+
+              
+        with tch_col3:
+            prob_fig =  plot_probability_heatmap(all_probabilities_df)
+            st.plotly_chart(prob_fig)  
+            
             
         st.markdown("---")
         left_padding, tch_col1, right_padding = st.columns([0.1,0.4 ,0.1])
