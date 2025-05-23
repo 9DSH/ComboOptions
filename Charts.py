@@ -1062,7 +1062,6 @@ def plot_predicted_trend(timeframes):
 
     return fig
 
-
 def plot_probability_heatmap(df):
     """
     Generate a heatmap based on the grouped probabilities of expiration dates and strike prices.
@@ -1088,19 +1087,25 @@ def plot_probability_heatmap(df):
         pd.DataFrame: Grouped DataFrame with average probabilities for each expiration date and strike price.
         """
         # Extracting expiration date and strike price from the 'Instrument' column
-        df['Expiration Date'] = df['Instrument'].str.extract(r'-(\d{2}[A-Z]{3}\d{2})-')
+        df['Expiration Date'] = df['Instrument'].str.extract(r'-(\d{1,2}[A-Z]{3}\d{2})-')[0]
         df['Strike Price'] = df['Instrument'].str.extract(r'-(\d{5,6})-')[0]
         
         # Convert 'Strike Price' to numeric
         df['Strike Price'] = pd.to_numeric(df['Strike Price'], errors='coerce')
 
+        # Convert to datetime format: e.g., '24MAY26' to '2026-05-24'
+        df['Expiration Date'] = pd.to_datetime(df['Expiration Date'], format='%d%b%y', errors='coerce')
+
+        # Drop rows with NaT in 'Expiration Date' or NaN in 'Probability (%)'
+        df.dropna(subset=['Expiration Date', 'Probability (%)'], inplace=True)
+
         # Group by 'Expiration Date' and 'Strike Price', taking the mean of probabilities
         grouped_df = df.groupby(['Expiration Date', 'Strike Price']).agg(
             Probability=('Probability (%)', 'mean')
         ).reset_index()
-
-        # Drop rows with NaN probabilities
-        grouped_df.dropna(subset=['Probability'], inplace=True)
+        
+        # Sort grouped_df by 'Expiration Date' in ascending order
+        grouped_df.sort_values('Expiration Date', inplace=True)
 
         return grouped_df
     
@@ -1110,15 +1115,15 @@ def plot_probability_heatmap(df):
     # Create the pivot table for the heatmap
     probability_matrix = grouped_df.pivot(index='Expiration Date', columns='Strike Price', values='Probability')
 
-    # Create the heatmap figure without explicitly using coloraxis
+    # Create the heatmap figure keeping the dates in ascending order
     fig = go.Figure(data=go.Heatmap(
         z=probability_matrix.values,
         x=probability_matrix.columns,
-        y=probability_matrix.index,
+        y=probability_matrix.index.strftime('%d %B %Y'),  # Format for the display
         colorscale='Cividis',
         zmin=0,  # Set minimum for probabilities
         zmax=100,  # Set maximum for probabilities
-        text=grouped_df.pivot(index='Expiration Date', columns='Strike Price', values='Probability').values,
+        text=probability_matrix.values,
         hoverinfo='text',
         showscale=False  # Disable the color scale (removes the legend)
     ))
@@ -1138,7 +1143,6 @@ def plot_probability_heatmap(df):
     )
 
     return fig
-
 
 def plot_option_profit(results_df, 
                        combo_df, 

@@ -1154,7 +1154,7 @@ def app():
 #-----------------------Technical analysis ----------------------------
 #-------------------------------------------------------------   
     with main_tabs[3]: 
-
+        #-------------------------- Trend -----------------------------
         trend_row = st.container()
         with trend_row:
             trend_col1 , trend_col2, trend_col3 = st.columns([0.2,0.4,0.2])
@@ -1204,7 +1204,8 @@ def app():
         
         st.markdown("---")
         
-        
+        # ------------------------Probability --------------------------------
+
         all_probabilities_df, top_probability_instrument = fetch_data.get_instrument_probabilities()
         
         tch_leftpadding, tch_col2, prob_padding,  tch_col3 ,tch_rightpadding = st.columns([0.2, 0.3,0.05, 0.4, 0.2])
@@ -1234,7 +1235,7 @@ def app():
             all_probabilities_df = all_probabilities_df.dropna()
             st.dataframe(all_probabilities_df, use_container_width=True, hide_index=True)
 
-              
+        # ---------------- Cumulative Trend ----------------------       
         with tch_col3:
             prob_fig =  plot_probability_heatmap(all_probabilities_df)
             st.plotly_chart(prob_fig)  
