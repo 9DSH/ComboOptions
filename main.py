@@ -249,22 +249,22 @@ def app():
                             oldest_entry_date_hour = oldest_entry_date.hour
                             oldest_entry_date_minute = oldest_entry_date.minute
                             with cc1:
-                                start_date = st.date_input("Start Entry Date", value=oldest_entry_date_date)
+                                start_date = st.date_input("Start Entry Date", value=oldest_entry_date_date, key= "start_date_input")
                             with cc2:
-                                start_hour = st.number_input("Hour", min_value=0, max_value=23, value=oldest_entry_date_hour)
+                                start_hour = st.number_input("Hour", min_value=0, max_value=23, value=oldest_entry_date_hour, key = "start_hours_input")
                             with cc3:
-                                start_minute = st.number_input("Minute", min_value=0, max_value=59, value=oldest_entry_date_minute)
+                                start_minute = st.number_input("Minute", min_value=0, max_value=59, value=oldest_entry_date_minute, key = "end_hours_input")
 
                         with date_row2:
                             ca1, ca2, ca3 = st.columns([0.04, 0.02, 0.02])
                             with ca1:
                                 current_utc_date = datetime.now(timezone.utc).date()
-                                end_date = st.date_input("End Entry Date", value=current_utc_date)
+                                end_date = st.date_input("End Entry Date", value=current_utc_date, key="Entry_end_input")
 
                                 with ca2:
-                                    end_hour = st.number_input("Hour", min_value=0, max_value=23, value=23)
+                                    end_hour = st.number_input("Hour", min_value=0, max_value=23, value=23, key = "start_hours_input_2")
                                 with ca3:
-                                    end_minute = st.number_input("Minute", min_value=0, max_value=59, value=59)
+                                    end_minute = st.number_input("Minute", min_value=0, max_value=59, value=59, key = "end_hours_input_2")
 
                             # Combine date and time into a single datetime object
                         start_datetime = datetime.combine(start_date, datetime.min.time().replace(hour=start_hour, minute=start_minute))
@@ -278,15 +278,15 @@ def app():
                         with row_one:
                             strike_col1, strike_col2 = st.columns(2)
                             with strike_col1:
-                                min_strike = st.number_input("Minimum strike", min_value=0, max_value=400000, value=lower_strike_filter)
+                                min_strike = st.number_input("Minimum strike", min_value=0, max_value=400000, value=lower_strike_filter, key = "start_strike_input")
                             with strike_col2:
-                                max_strike = st.number_input("Maximum strike", min_value=0, max_value=400000, value=upper_strike_filter)
+                                max_strike = st.number_input("Maximum strike", min_value=0, max_value=400000, value=upper_strike_filter, key = "end_strike_input")
                         with row_two:
                             size_col1, size_col2 = st.columns(2)
                             with size_col1:
-                                min_size= st.number_input("Minimum size", min_value=0.1, max_value=500.0, value=0.1)
+                                min_size= st.number_input("Minimum size", min_value=0.1, max_value=500.0, value=0.1, key = "min_size_input")
                             with size_col2:
-                                max_size = st.number_input("Maximum size", min_value=0.1, max_value=500.0, value=500.0)
+                                max_size = st.number_input("Maximum size", min_value=0.1, max_value=500.0, value=500.0, key = "max_size_input")
                             size_range = (min_size, max_size)
 
                             if 'Size' in market_screener_df.columns:
@@ -312,7 +312,7 @@ def app():
                             # Optionally convert back to desired string format for display purposes
                             sorted_market_available_dates = [date.strftime("%#d-%b-%y") for date in sorted_market_available_dates]
 
-                            selected_expiration_filter = st.multiselect("Filter by Expiration Date", sorted_market_available_dates, key="whatch_exp_filter")
+                            selected_expiration_filter = st.multiselect("Filter by Expiration Date", sorted_market_available_dates, key="watch_exp_filter")
 
                         with row_strike:
                             
@@ -327,10 +327,10 @@ def app():
                                 sorted_strikes = sorted(unique_strikes, reverse=True)  # Sort in descending order
 
                                 # Create the multiselect for the filtered strike prices
-                                multi_strike_filter = st.multiselect("Filter by Strike Price", options=sorted_strikes)
+                                multi_strike_filter = st.multiselect("Filter by Strike Price", options=sorted_strikes, key="multisselect_strike")
                             else:
                                 # Handle case where no strikes are available
-                                multi_strike_filter = st.multiselect("Filter by Strike Price", options=[], default=[], help="No available strikes to select.")
+                                multi_strike_filter = st.multiselect("Filter by Strike Price", options=[], default=[], help="No available strikes to select.", key="default_multiselect")
                     
                     with col_vertical_3:
                             st.markdown("<div style='height: 150px; width: 1px; background-color: gray; margin: auto;'></div>", unsafe_allow_html=True)  # Vertical line
@@ -580,7 +580,7 @@ def app():
                                     strategy_labels.append(f"{format_value(total_premium)} | {option_details}")
 
                                 # Use a selectbox to choose a strategy
-                                selected_strategy_label = st.selectbox("Select a Strategy", strategy_labels)
+                                selected_strategy_label = st.selectbox("Select a Strategy", strategy_labels, key=f'show_{strategy_labels}')
                                 
                                 # Find the selected strategy details
                                 selected_strategy = next((s for s in sorted_strategies if f"{format_value(s[3])} | " + " ** ".join(
@@ -645,8 +645,8 @@ def app():
 
                         with whale_cal2:
                             if whale_filter_type == "Entry Value" :
-                                entry_filter = st.number_input("Set Entry Filter Value", min_value=0, value=10000, step=100)
-                            else : entry_filter = st.number_input("Set Size Filter Value", min_value=0.1, value=2.0, step=0.1)
+                                entry_filter = st.number_input("Set Entry Filter Value", min_value=0, value=10000, step=100, key = "entry_filter_whales_input")
+                            else : entry_filter = st.number_input("Set Size Filter Value", min_value=0.1, value=2.0, step=0.1 , key = "size_filter_whales_input")
                             
 
                         outliers , whales_fig = plot_identified_whale_trades(filtered_df,
@@ -805,7 +805,8 @@ def app():
                         quantity = st.number_input('Quantity',
                                                     min_value=0.1,
                                                     step=0.1,
-                                                    value=st.session_state.quantity)  # Current value from session state
+                                                    value=st.session_state.quantity ,
+                                                    key = "qty_input")  # Current value from session state
                         # Update session state only if the value changes
                         if quantity != st.session_state.quantity:
                             st.session_state.quantity = quantity  # Update the session state after the widget is used
@@ -1105,23 +1106,23 @@ def app():
                 with cool1: 
                     sim_expiration_date = st.date_input("Expiration Date")
                 with cool2:
-                    sim_strike_price = st.number_input("Strike Price", min_value=1000, step=500, value=90000)
+                    sim_strike_price = st.number_input("Strike Price", min_value=1000, step=500, value=90000, key = "strike_number_input")
                 with cool3:
                     
-                    sim_type = st.selectbox("Type", options=["Put", "Call"])
+                    sim_type = st.selectbox("Type", options=["Put", "Call"], key="type_select")
                 with cool4:
                     
-                    sim_side = st.selectbox("Side", options=["BUY", "SELL"])
+                    sim_side = st.selectbox("Side", options=["BUY", "SELL"], key= "side_select")
                     
                 with cool5:
                     
-                    sim_size = st.number_input("Size", min_value=0.1, step=0.1)
+                    sim_size = st.number_input("Size", min_value=0.1, step=0.1, key = "sim_size_input")
                 with cool6:
                     
-                    sim_price_usd = st.number_input("Price (USD)", min_value=0.1, step=0.1, value=10.0)
+                    sim_price_usd = st.number_input("Price (USD)", min_value=0.1, step=0.1, value=10.0, key = "sim_price_input")
                 with cool7:
                 
-                    iv_percent = st.number_input("IV (%)", min_value=0.1, step=0.1 , value=45.5)
+                    iv_percent = st.number_input("IV (%)", min_value=0.1, step=0.1 , value=45.5, key= "sim_iv_input")
                 with button:
                     apply_button = st.button("Simulate")
 

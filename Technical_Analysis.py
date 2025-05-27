@@ -132,44 +132,33 @@ class TechnicalAnalysis:
         """
         Fetches the latest price of a specified asset from Yahoo Finance.
 
-        Parameters:
-            asset_or_pair: The asset symbol (default is BTC-USD)
-            interval: The data interval (default is 1d)
-            start_date: The first timestamp (default is 2023-01-01)
-
         Returns:
             A dataframe of the asset's open, high, low, close, and volume for the most recent timeframe.
         """ 
         # Set the start date for the historical data 
-        start_date = (pd.Timestamp.now() - pd.DateOffset(years=1)).strftime('%Y-%m-%d')   ## start date 5 years
+        start_date = (pd.Timestamp.now() - pd.DateOffset(years=1)).strftime('%Y-%m-%d')
+
         # Retrieve historical price data
-        df= yf.download(self.symbol , start=start_date, auto_adjust=True, interval=self.interval)
+        df = yf.download(self.symbol, start=start_date, auto_adjust=True, interval=self.interval)
 
         # If the dataframe is empty, return an empty dataframe
         if df.empty:
             print("No data retrieved. Please check the asset symbol or the API response.")
             return df
-        # Trim the DataFrame to necessary columns
-        
-        # Rename columns to match the desired output structure
-        df = df.reset_index()
 
-            # Selecting relevant columns and flattening the MultiIndex columns
+        # Trim and rename columns to match the desired output structure
+        df = df.reset_index()
         df = df.rename(columns={'Date': 'Datetime'})  # Rename to differentiate
         df.columns = df.columns.map(lambda x: x[0] if isinstance(x, tuple) else x)
 
-            # Rearranging columns
+        # Rearranging columns
         df = df[['Datetime', 'Open', 'High', 'Low', 'Close', 'Volume']]
         df.rename(columns={'Datetime': 'Date'}, inplace=True)
-    
 
-        # Round the values as needed
-        df[['Open', 'High', 'Low', 'Close', 'Volume']] = (
-            df[['Open', 'High', 'Low', 'Close', 'Volume']]
-            .map(lambda x: round(x, 3))
-            .astype("float")
-        )
-        
+        # Round the values of relevant columns
+        numerical_columns = ['Open', 'High', 'Low', 'Close', 'Volume']
+        df[numerical_columns] = df[numerical_columns].apply(lambda x: round(x, 3))
+
         df.columns = df.columns.str.lower()
         # Return the DataFrame
         return df
@@ -212,13 +201,12 @@ class TechnicalAnalysis:
             # Calculate the Senkou Span A (Leading Span A)
             data["senkou_span_a"] = ((data["tenkan_sen"] + data["kijun_sen"]) / 2).shift(26)
 
-            # Calculate the Senkou Span B (Leading Span B):
+            # Calculate the Senkou Span B (Leading Span B)
             data["senkou_span_b"] = (
                 (
-                    data["high"].rolling(window=52).max()
-                    + data["low"].rolling(window=52).min()
-                )
-                / 2
+                    data["high"].rolling(window=52).max() +
+                    data["low"].rolling(window=52).min()
+                ) / 2
             ).shift(26)
 
             # Calculate the Chikou Span (Lagging Span)
@@ -227,7 +215,7 @@ class TechnicalAnalysis:
             # Calculate the Senkou Span A (Leading Span A)
             data["senkou_span_a"] = (data["tenkan_sen"] + data["kijun_sen"]) / 2
 
-            # Calculate the Senkou Span B (Leading Span B):
+            # Calculate the Senkou Span B (Leading Span B)
             data["senkou_span_b"] = (
                 data["high"].rolling(window=52).max() + data["low"].rolling(window=52).min()
             ) / 2
@@ -235,9 +223,11 @@ class TechnicalAnalysis:
             # Calculate the Chikou Span (Lagging Span)
             data["chikou_span"] = data["close"]
 
-        return data[
-            ["tenkan_sen", "kijun_sen", "senkou_span_a", "senkou_span_b", "chikou_span"]
-        ].map(lambda x: round(x, 3))
+        # Select relevant columns and round the values
+        columns_to_round = ["tenkan_sen", "kijun_sen", "senkou_span_a", "senkou_span_b", "chikou_span"]
+        
+        # Return the DataFrame with rounded values
+        return data[columns_to_round].round(3)
 
     @staticmethod
     def switch_komu(df: pd.DataFrame):
