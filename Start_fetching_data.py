@@ -4,8 +4,8 @@ from datetime import date, datetime , timedelta
 import time
 
 # Example usage
-CLIENT_ID = 'i_kH-t6n'
-CLIENT_SECRET = 'sHrn7n_7RE4vVEzhMkm3n4S8giSl5gK9L9qLcXFtDTk'
+CLIENT_ID = 'B2uxTcMr'
+CLIENT_SECRET = '4DFWS6LcbQPBGU6xglFytGI0Bu8or0kRh-a8C-IjtGk'
 deribit_api = DeribitAPI(CLIENT_ID, CLIENT_SECRET)
 
 
